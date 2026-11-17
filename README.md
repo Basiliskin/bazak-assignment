@@ -20,7 +20,7 @@ npm run dev
 | Command | What it does |
 |---|---|
 | `npm test` | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB). |
-| `npm run eval` | 6 live cases against `gpt-6-luna` and the real catalog (~35 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
+| `npm run eval` | 7 live cases against `gpt-6-luna` and the real catalog (~40 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
 | `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build. |
 
 ## Architecture & framework choice
@@ -73,3 +73,19 @@ What happens when things go wrong:
 - **Model error mid-stream:** the partial text stays, with a Retry button.
 
 One gap: if `data/app.db` is deleted while the API runs, nothing crashes, but the chats are gone after a restart and the page shows "Conversation not found". No test covers this.
+
+## Evaluation
+
+There are two suites, split by cost. `npm test` runs offline with no key: pure functions, React components, and API e2e tests that run a whole turn with the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. Each e2e test posts a message, checks that the stream carries tool output and then text, and reads the Conversation back to confirm both Messages were saved.
+
+`npm run eval` runs 7 cases against `gpt-6-luna` and the real Catalog: plain, price, ambiguous, off-catalog, multi-intent, follow-up and beach. I check the rules in code on the saved Message instead of asking an LLM judge, so a failure always means the same thing. The rules: every Product is real, in stock and within the price limit; at most 4 cards; a guessed search has an Assumption and a question; off-catalog calls `report_off_catalog`; one group per intent; a follow-up is cheaper than the previous result; recommendations don't repeat matches; and beach matches come from beach categories. It writes the table to `docs/qa-report.md` and exits 1 on any failure. It isn't part of `npm test` because it costs money and its results can vary.
+
+The eval earned its place. After S8 it went from 5/7 to 7/7: a broad search left nothing to recommend, and recommendations depended on the order of tool calls. Earlier live runs found the model searching for "flight" three times without replying, "Show more" changing the sort order, and empty "Travel bags" groups under off-catalog replies.
+
+What gets through:
+- **Meaning:** Q1 passed 7/7 while showing an Echo under "Beach essentials". Only the beach case checks relevance now.
+- **Wording:** tone, and whether an Assumption makes sense, aren't checked.
+- **Model variance:** each case runs once, so a pass means the feature worked once, not a pass rate.
+- **Threshold:** whether 0.35 is right beyond these 7 cases.
+- **The real embedding model download:** tests use a fake embedder.
+- **Layout:** checked by hand in Chrome; there's no Playwright.

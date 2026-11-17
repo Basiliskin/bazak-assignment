@@ -570,3 +570,16 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** include both; (b) prose.
 **Artifacts:** `README.md` (Conversation & state).
 **Next step:** `/readme evaluation` (Section 5, still open).
+
+## 2026-11-17 18:35 : /readme — Section 5 Evaluation
+
+**User input:**
+> /readme evaluation
+> yes
+> b
+
+**Found:** checked `evals/cases.ts` (7 cases), `evals/checks.ts` (R1–R10, similar, relevant), qa-report coverage map and live eval table, `package.json` scripts. Setup table said "6 live cases (~35 s)" — stale since S8.
+**Options offered:** fix the Setup table (yes); drafts (a) bullets / (b) prose (rec.); "with more time" items deferred to Known limitations.
+**Decision:** (b) prose; Setup table → 7 cases, ~40 s.
+**Artifacts:** `README.md` (Evaluation; Setup table line).
+**Next step:** `/readme limitations` (Section 6 + How this was built, still open).

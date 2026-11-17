@@ -2436,3 +2436,102 @@
 ### 2026-11-17T15:51:21.781Z : /readme — user
 
 > b
+
+### 2026-11-17T15:51:38.823Z : /readme — assistant
+
+> ✅ Done: I added the **Conversation & state** section to `README.md` using draft (b) as written, and logged the decision in `docs/ai-log/SESSION-LOG.md`.
+> 
+> It's committed as `cc3f3e5`. `README.md` wasn't tracked by git before, so this commit also adds the Setup, Architecture and Retrieval sections you approved earlier, and the hook-written `CONVERSATION.md` changes. The secret-key scan came back clean.
+> 
+> Your editor is showing TypeScript errors in files like `WidgetShell.tsx` and `checks.spec.ts`. This change touched only docs, and the last QA run had typecheck clean, so the errors are probably stale. Run `npm run typecheck` to confirm.
+> 
+> ➡️ Next step: /readme
+> Prompt to paste:
+> `/readme evaluation` (Section 5: what the 7 live cases and offline suites check end to end, which regressions they catch, and what gets through: wording, whether an Assumption makes sense, model variance, whether 0.35 is the right threshold)
+
+### 2026-11-17T15:51:47.098Z : /readme — user
+
+> /readme evaluation
+
+### 2026-11-17T15:52:02.997Z : /readme — assistant
+
+> I've read the eval code (`evals/cases.ts`, `checks.ts`), the QA report and the notes. These are the key points for **Evaluation**. Please confirm or correct them.
+> 
+> **Two suites, split by cost**
+> 1. **`npm test`** runs offline: no key and no network. It covers pure functions (filters, ranking, history compaction, paging, the eval checks themselves), React component tests, and API e2e tests using the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. The e2e tests run a whole turn: `POST /api/chat` streams tool output and then text, and `GET` returns both Messages saved. Latest counts are api 152, web 68, evals 28.
+> 2. **`npm run eval`** runs 7 live cases against `***REDACTED***` and the real Catalog: plain, price, ambiguous, off-catalog, multi-intent, follow-up and beach. It takes about 35 s and costs a few cents. It writes the results table to `docs/qa-report.md` and exits 1 on any failure. It's kept out of `npm test` because it costs money and its results can vary from run to run.
+> 3. **Live rules, all checked in code on the saved Message, with no LLM judge:**
+>    - R1: every Product id and title exists in the Catalog.
+>    - R2: a guessed search comes with an Assumption and a question.
+>    - R3: `report_off_catalog` is called.
+>    - R4: one group per intent.
+>    - R5: a follow-up is cheaper than the previous result.
+>    - R6: the price limit is respected.
+>    - R7: at most 4 cards.
+>    - R9: everything shown is in stock.
+>    - R10: the Recommended Group doesn't repeat a match and keeps the price and stock filters.
+>    - `relevant`: beach matches come from beach categories.
+> 
+> **Regressions it caught (real examples)**
+> - After S8 the eval went from 5/7 to 7/7. Excluding every match id left nothing to recommend, and recommendations depended on the order of tool calls.
+> - It found the empty "Travel bags" group on off-catalog requests.
+> - Earlier, live runs found the "flight ×3, then no reply" bug and the "Show more" sort change.
+> 
+> **What gets through**
+> - **Meaning (the main one):** Q1 passed 7/7 while showing an Echo under "Beach essentials". The `relevant` rule now covers only the beach case.
+> - **Wording:** tone, and whether an Assumption makes sense, aren't checked.
+> - **Model variance:** each case runs once, so a pass means the feature worked once, not that it passes reliably.
+> - **The 0.35 threshold:** it's only checked on 7 cases.
+> - **The real embedding model download:** tests use a fake embedder.
+> - **Layout and visuals:** no Playwright; the UI was checked by hand in Chrome.
+> 
+> **With more time:** run each case N times and report a pass rate, add cases (0 results, Show more, prompt injection in Product text), and build a labelled set to measure recall@k for the threshold.
+> 
+> **Found while checking:** the Setup table still says "6 live cases". Should I change it to 7 while I'm here?
+> 
+> Once you confirm, I'll send the two drafts.
+
+### 2026-11-17T15:52:09.582Z : /readme — user
+
+> yes
+
+### 2026-11-17T15:52:23.126Z : /readme — assistant
+
+> Agreed. When I write this section I'll also change the Setup table to say 7 cases. The latest run's case times add up to about 40 s, so I'll change "~35 s" to "~40 s" there too.
+> 
+> **(a) Terse bullets**
+> 
+> ```markdown
+> ## Evaluation
+> 
+> - **`npm test`** (offline, no key): pure functions, React components, and API e2e tests with the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. The e2e tests run a whole turn: `POST /api/chat` streams tool output then text, and `GET` returns both Messages saved.
+> - **`npm run eval`** (live): 7 cases against `***REDACTED***` and the real Catalog (plain, price, ambiguous, off-catalog, multi-intent, follow-up, beach). The rules are checked in code on the saved Message, with no LLM judge: real Products only, price limit, ≤ 4 cards, in stock, Assumption + question on a guess, `report_off_catalog` called, one group per intent, follow-up cheaper, recommendations don't repeat matches, beach matches in beach categories.
+> - **Caught:** the eval went from 5/7 to 7/7 after S8 (nothing left to recommend after a broad search; off-catalog depended on tool-call order). Live runs also found "flight" searched three times with no reply, the "Show more" sort change, and empty "Travel bags" groups.
+> - **Gets through:** whether matches mean the right thing (Q1 passed 7/7 with an Echo under "Beach essentials"; only the beach case checks relevance now), wording and how sensible an Assumption is, model variance (each case runs once), whether 0.35 is the right threshold, the real model download, layout.
+> ```
+> 
+> **(b) Short prose**
+> 
+> ```markdown
+> ## Evaluation
+> 
+> There are two suites, split by cost. `npm test` runs offline with no key: pure functions, React components, and API e2e tests that run a whole turn with the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. Each e2e test posts a message, checks that the stream carries tool output and then text, and reads the Conversation back to confirm both Messages were saved.
+> 
+> `npm run eval` runs 7 cases against `***REDACTED***` and the real Catalog: plain, price, ambiguous, off-catalog, multi-intent, follow-up and beach. I check the rules in code on the saved Message instead of asking an LLM judge, so a failure always means the same thing. The rules: every Product is real, in stock and within the price limit; at most 4 cards; a guessed search has an Assumption and a question; off-catalog calls `report_off_catalog`; one group per intent; a follow-up is cheaper than the previous result; recommendations don't repeat matches; and beach matches come from beach categories. It writes the table to `docs/qa-report.md` and exits 1 on any failure. It isn't part of `npm test` because it costs money and its results can vary.
+> 
+> The eval earned its place. After S8 it went from 5/7 to 7/7: a broad search left nothing to recommend, and recommendations depended on the order of tool calls. Earlier live runs found the model searching for "flight" three times without replying, "Show more" changing the sort order, and empty "Travel bags" groups under off-catalog replies.
+> 
+> What gets through:
+> - **Meaning:** Q1 passed 7/7 while showing an Echo under "Beach essentials". Only the beach case checks relevance now.
+> - **Wording:** tone, and whether an Assumption makes sense, aren't checked.
+> - **Model variance:** each case runs once, so a pass means the feature worked once, not a pass rate.
+> - **Threshold:** whether 0.35 is right beyond these 7 cases.
+> - **The real embedding model download:** tests use a fake embedder.
+> - **Layout:** checked by hand in Chrome; there's no Playwright.
+> ```
+> 
+> I recommend **(b)**. It keeps the same style as the sections before it, and the "what gets through" list is the part a reviewer will look for. The "with more time" items (pass rate over N runs, more cases, recall@k) I'll leave for Known limitations.
+
+### 2026-11-17T15:52:25.445Z : /readme — user
+
+> b
