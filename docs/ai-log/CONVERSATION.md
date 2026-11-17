@@ -2644,3 +2644,43 @@
 ### 2026-11-17T15:53:28.910Z : /readme — user
 
 > b
+
+### 2026-11-17T15:53:51.952Z : /readme — assistant
+
+> ✅ Done: I added **Known limitations** and **How this was built** to `README.md` using draft (b) as written, so all six required sections are now in. The decision is logged in `docs/ai-log/SESSION-LOG.md`.
+> 
+> - **Commits:** the text is in `3113124`. Prettier then reformatted the README in `7085e47`: it aligned the Setup table and added blank lines before lists, with no wording changes. The secret-key scan came back clean and the working tree is clean.
+> - **What's left out:** A5 (the missing stream `error` listener) and A6 (`ChatTurnService` depending on `CatalogService` directly) aren't in the README, but they're still listed in `docs/qa-report.md` in case the interview asks.
+> - **Length:** the README is about 2,200 words, which is at the top of a 5-minute read. Retrieval is the longest section, so it's the one to trim if you want it shorter.
+> 
+> ➡️ Next step: /interview
+> Prompt to paste:
+> `/interview` (full mock interview on the finished README: framework choice, retrieval and RAG, persistence failure modes, eval blind spots, limitations)
+
+### 2026-11-17T15:54:42.287Z : /chat — user
+
+> I think there result is confusing [Image #4]  You might also like shows smartphones!
+
+### 2026-11-17T15:56:25.731Z : /chat — assistant
+
+> I fixed it: "You might also like" no longer shows products that are already matches.
+> 
+> **Why it happened:** an earlier decision (D50) made recommendations skip only the 4 cards on screen. "Show me smartphones" had 15 matches, so the 11 behind "Show more" were still allowed into the recommendations, which is why you saw more smartphones there. D50 existed because skipping every match left a broad search like "something for the beach" (190 matches) with nothing to recommend. A later fix (D54) now sorts a broad search's matches by how close they are to the request, so the main list already handles that case and D50 isn't needed.
+> 
+> **What changed (decision D56):**
+> - `apps/api/src/catalog/domain/filter-products.ts`: the search now also returns `matchIds`, the ids of every match across all pages.
+> - `apps/api/src/catalog/application/catalog.service.ts:46`: recommendations exclude all of those ids, not just the visible page.
+> - **Side effect:** a broad search like "beach" will usually get no "You might also like" section now. So I removed `recommended: true` from the beach eval case in `evals/cases.ts`; it still checks that the matches come from beach categories.
+> - Tests are updated, and the docs record the change: ADR 0004, the D50 row in `docs/architecture.md`, the README's retrieval and limitations sections, `docs/interview-prep.md`, `docs/readme-notes.md` and `docs/ai-log/SESSION-LOG.md`.
+> 
+> All 248 tests pass, and typecheck, eslint and prettier are clean. I haven't run the live LLM eval (`npm run eval`) because it costs money, so the updated beach case hasn't been tried against the real model yet. Nothing is committed.
+
+### 2026-11-17T15:58:11.768Z : /chat — user
+
+> please commit
+
+### 2026-11-17T15:58:24.090Z : /chat — assistant
+
+> I committed the fix as `62ec516` on a new branch, `fix/recommendations-exclude-matches`. I didn't commit to `main` directly because my rules say to branch first when on the default branch. If you'd rather keep everything on `main`, run `git switch main && git merge --ff-only fix/recommendations-exclude-matches`.
+> 
+> I left out `docs/ai-log/CONVERSATION.md`: it already had uncommitted changes before this fix, and they aren't mine.
