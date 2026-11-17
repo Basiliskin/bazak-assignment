@@ -1,6 +1,6 @@
 # 0002 — LLM translates requests into a structured query; catalog filtered in memory; no vector RAG
 
-**Status:** accepted (2026-11-17, /architect round 1b — the structured-query-with-confidence idea came from the user)
+**Status:** accepted (2026-11-17, /architect round 1b — the structured-query-with-confidence idea came from the user). The "no vector RAG" part is superseded by ADR 0004.
 
 ## Context
 DummyJSON search is a substring match: "cheap" → 0, "smartphone phone" → 0, "phone" mixes in accessories; there is no price filter. The catalog is 194 Products. Unconstrained, the model invents categories ("electronics"). Only `gpt-6-luna` is allowed and it cannot create embeddings.

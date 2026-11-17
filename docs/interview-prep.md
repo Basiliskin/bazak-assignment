@@ -100,3 +100,16 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - What exactly does the widget keep in localStorage, and what if it is corrupted, blocked or points to a deleted chat? → D38; `apps/web/src/lib/widget-state.ts` (zod-validated pointer; invalid → closed + new chat) + `shells/useWidgetState.ts` (try/catch); `ChatView fresh` turns a 404 into an empty chat
 - Why does ⤢ pass `{ fresh: true }`? → the widget's id may not be saved yet (opened, nothing sent); `chatLocation` in `shells/PageShell.tsx`
 - How much did the widget cost given the full page existed? → two shells + one list container; `ChatView`, `MessageBubble`, `ProductGroup` gained only a `layout` prop (D14 fallback plan held)
+
+## /readme — RAG detour
+- Why a local embedding model and not text-embedding-3-small? → SESSION-LOG D40, readme-notes "RAG detour".
+- Why two groups (match + recommended) instead of one fused list? → D42.
+- Why no BM25? What changes at 100K products? → SESSION-LOG "BM25?", readme-notes.
+- What has to change to swap the in-memory vector index for pgvector? → D41 (port takes filters + k).
+
+## /architect — RAG (S8)
+- Why a fixed 0.35 threshold, and what happens when it's wrong? → ADR 0004, probe numbers in architecture.md.
+- Why does the model write `semanticQuery` instead of embedding the user's raw message? → architecture.md "Local embeddings" (beach 0.28 vs 0.49).
+- What happens if the embedding model fails to download or load? → D44.
+- Why does the Recommended Group ignore category but keep the price filter? → architecture.md `rankBySimilarity`.
+- Is a local embedding model within "gpt-6-luna only"? → ADR 0004 assumption.

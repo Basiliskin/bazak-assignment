@@ -416,3 +416,76 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Verified:** lint, typecheck and Prettier clean; tests api 111/111 (+3 `topRated`, +3 e2e), web 62/62 (+6 widget-state, +6 `WidgetShell`, `/` route test updated), evals 22/22; `npm run build` ok. Live in Chrome (gpt-6-luna): shop grid of real top-rated Products; ✦ → "a phone under $500" streamed into a carousel with Show more; reload → widget reopened on the same Conversation; ⤢ → `/chat/<id>` with the same group, pointer saved as closed; at the narrowest window Chrome allows (606 px) the window fills the screen with no horizontal scroll; no console errors.
 **Also updated:** `docs/qa-report.md` US6b row, readme-notes and interview-prep lines that said the widget was not built.
 **Next step:** `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md` (/qa already ran; widget is covered by its own tests)
+
+## 2026-11-17 20:10 : /readme — Section 1 Setup + Section 2 key points
+
+**User input:**
+> /readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md
+> agree
+> Should reject
+> Should I include the context diagram from architecture.md
+
+**Verified before drafting:** `npm test` api 111 / web 62 / evals 22, lint, typecheck, build all green; live eval not re-run (last run 6/6 in qa-report).
+**Found:** ADR 0003 says `/c/:id`, code uses `/chat/:id`; qa-report test counts predate S7. README follows the code.
+**Options offered:** style (a) bullets / (b) prose — rec. bullets for Setup, prose for the "why" sections; Section 2: include Decisions API as 4th rejected alternative?; include context diagram?
+**Decision:** style as recommended; Setup bullets written; Decisions API included as rejected alternative; context diagram included (Claude's recommendation — it replaces a paragraph).
+**Artifacts:** `README.md` (Setup and run)
+
+## 2026-11-17 20:20 : /readme — Section 2 Architecture
+
+**User input:**
+> b
+
+**Options offered:** (a) terse bullets / (b) short prose (rec.)
+**Decision:** (b), with context diagram.
+**Artifacts:** `README.md` (Architecture & framework choice)
+
+## 2026-11-17 20:35 : /readme — Section 3 Retrieval
+
+**User input:**
+> yes
+> b
+
+**Found:** only `GET /products?limit=0` is called; details popup and shop grid read the cached copy (`catalog.service.ts:27`).
+**Options offered:** include the "flight ×3, empty reply" story? (yes); (a) bullets / (b) prose (rec.)
+**Decision:** story included; (b).
+**Artifacts:** `README.md` (Retrieval strategy)
+
+## 2026-11-17 20:55 : /readme — RAG detour (README paused at Section 4)
+
+**User input:**
+> I think I want to add RAG support : 1. what changes required to add it ? 2. also I think there should be by keywords direct result and recommended by RAG. 3. what required to make this POC ready to production with minimal changes - DB with 100K products and so on...
+> D40 - agree
+> D41 - can it be done without postgress and pgvector as POC ? and later it can be switched for proper ports ?
+> D42 - agree
+
+**Options offered:**
+- D40 Embedding source: (a) local in-process model, @huggingface/transformers all-MiniLM-L6-v2 (rec.) / (b) text-embedding-3-small (not an allowed model) / (c) gpt-6-luna re-ranking, no vectors.
+- D41 Build or design: (a) design only, ADR + README (rec.) / (b) build POC / (c) only 0-match fallback. User asked: POC without Postgres/pgvector, swappable later?
+- D42 Display: (a) two groups per intent, match + "You might also like" (rec.) / (b) one fused RRF list.
+**Decision:** D40 (a), D42 (a). D41: answered — yes, in-memory vector index behind `VectorIndexPort` (filters + k in the port so pgvector can push them into SQL later) + `EmbeddingPort`; awaiting confirmation to build.
+**Production notes (for README limitations):** Postgres + pgvector replaces SQLite and the in-memory catalog; `CatalogPort.getAll()` → `search(query)`; category enum doesn't scale; ingestion job with content hashes; golden-set retrieval metrics.
+
+## 2026-11-17 21:05 : /readme — RAG detour: BM25?
+
+**User input:**
+> do we need BM25 ?
+
+**Answer:** No for the POC: 194 Products, category narrowing first, 1–5 model-chosen keywords → IDF/length normalisation changes little; BM25 is whole-token and would lose part-of-word matching (iPhone, Handbag); the real gap (no lexical overlap) is what vectors cover. Production: BM25-like ranking comes with the keyword adapter (Postgres ts_rank / ParadeDB pg_search / OpenSearch), behind the same port; match + recommended groups = hybrid shown separately.
+**Decision:** no BM25 in the POC (pending user objection).
+
+## 2026-11-17 21:30 : /architect — RAG (S8)
+
+**User input:**
+> /architect add RAG (D40 a, D41 b, D42 a from SESSION-LOG): local all-MiniLM-L6-v2 embeddings behind EmbeddingPort, in-memory VectorIndexPort taking filters + k (pgvector-ready), search_products gains semanticQuery and returns a match group + a "You might also like" group built in code; verify the library on Node 26 ESM, write ADR 0004 superseding ADR 0002's no-RAG part, add slice S8
+> agree to recomendations
+
+**Verified (scratchpad probe, live catalog):** `@huggingface/transformers@4.3.2` + `Xenova/all-MiniLM-L6-v2` q8 run on Node 26 ESM; 24 MB model, first load ~13 s, cached 74 ms; 194 embeds in 0.5 s; query 2–3 ms; +~470 MB node_modules (onnxruntime-node), postinstall not needed. Raw "something for the beach" weak (Fish Steak 0.28) vs model-expanded description good (0.45–0.49); "cellphone" → smartphones 0.41; no-match queries (gaming, flights) ≤ 0.31.
+**Options offered:**
+- D43 Threshold: (a) fixed min cosine 0.35, hide group if empty (rec.) / (b) always top 4 / (c) relative to best score.
+- D44 Lifecycle: (a) background load at startup, rebuild on catalog refresh, degrade to match-only (rec.) / (b) block startup / (c) lazy on first search.
+- D45 Shape: (a) `{match, recommended | null}`, `kind` on ProductGroup, flat productGroups (rec.) / (b) nested `recommendations`.
+- Defaults: required `semanticQuery` (expanded description); embedded text = title. category. brand. tags. description; recommended ignores category, excludes all match ids, ≤4, no Show more, none on off-catalog or Show-more pages; model cache `data/models/`; fake EmbeddingPort in tests; glossary "Recommended Group"; eval R10 + "beach" case.
+**Decision:** D43 (a), D44 (a), D45 (a), defaults accepted.
+**Artifacts:** `docs/adr/0004-local-embeddings-recommended-group.md`, ADR 0002 status note, `docs/architecture.md` (D40–D45, embedding facts, context diagram, folder tree, tool table, `rankBySimilarity`, query behaviour, eval row, slice S8), `docs/requirements.md` (R10, AC3.10), `GLOSSARY.md` (Recommended Group).
+**Next step:** `/developer S8 Recommended Group (RAG) from docs/architecture.md and ADR 0004`

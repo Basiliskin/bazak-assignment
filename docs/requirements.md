@@ -18,6 +18,7 @@ Source: `docs/assignment.md`. Terms: `GLOSSARY.md`. Decisions: `docs/ai-log/SESS
 | R7 | Each Product Group shows up to **4** Product Cards plus "N more match" when there are more. |
 | R8 | If a search returns nothing, say so and suggest a broader alternative — never an empty group with no explanation. |
 | R9 | Out-of-stock Products (`stock: 0`, 4 of 194) are never shown in search results. |
+| R10 | A **Recommended Group** (S8, ADR 0004) never repeats a Product from the match group of the same Search Intent, obeys R6 and R9, and is left out when nothing is similar enough. |
 
 ## User stories and acceptance criteria
 
@@ -42,6 +43,7 @@ As a Shopper I want the Assistant to find relevant Products so that I get real o
 - **AC3.6 (follow-up)** Given a previous reply showed phones, when I say "show me cheaper ones", then the new phones are cheaper than the cheapest shown before, or the reply says none exist (R5).
 - **AC3.7 (no results)** Given a request with no matching Products, then the reply says so and suggests a broader search (R8).
 - **AC3.9 (out of stock)** Given a search whose category contains an out-of-stock Product (e.g. Samsung Galaxy S8), then it never appears in the Product Group (R9).
+- **AC3.10 (recommended)** Given "something for the beach" or a word the Catalog doesn't use ("cellphone"), then a "You might also like" group shows similar real Products, none repeating the matches and none above a stated price limit; given "a flight to Tokyo", no Recommended Group is shown (R10).
 - **AC3.8 (catalog down)** Given the Catalog is unreachable, then the Assistant says it can't search right now — no invented Products, no crash.
 
 ### US4 — Product Cards in chat

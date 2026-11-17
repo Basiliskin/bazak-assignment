@@ -29,3 +29,5 @@
 **Multi-intent Request** — a Shopper message containing more than one Search Intent (e.g. "a phone under $500 and a lipstick"). Each intent gets its own Product Group.
 
 **Follow-up** — a Shopper message that only makes sense with earlier Messages (e.g. "show me cheaper ones").
+
+**Recommended Group** — a Product Group of similar Products shown below the matches of one Search Intent ("You might also like"). It never repeats a matched Product and respects the same price limit.

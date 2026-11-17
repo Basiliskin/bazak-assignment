@@ -81,3 +81,10 @@
 - `/` is a shop page (top-rated in-stock Products from `GET /api/products?limit=10`, details popup on click) with the copilot as a floating ✦ widget: 420×680 window on desktop, full screen below 640 px, Product Groups as a carousel. ☰ lists Conversations, ＋ new chat, ⤢ opens the same Conversation at `/chat/:id`.
 - The widget remembers only `{ open, conversationId }` in localStorage (zod-validated; corrupted/blocked storage → closed widget on a new chat). Chats themselves stay on the server.
 - With more time: a "back to shop" path from the full page that reopens the widget; focus trap inside the widget on phones (it is full screen but not modal).
+
+## /readme — RAG detour
+- RAG chosen (D40 a, D42 a): local embedding model (all-MiniLM-L6-v2 via @huggingface/transformers) — the only way to add vectors without a non-allowed OpenAI model; assumption: "gpt-6-luna only" covers OpenAI models, not a local embedder.
+- Each search returns a keyword "match" group + a "You might also like" group (cosine, same price/stock filters, match ids excluded), built in code — no extra LLM step.
+- POC: in-memory vectors behind `VectorIndexPort`/`EmbeddingPort`; production: pgvector adapter on the same port, Postgres also replaces SQLite; `CatalogPort.getAll()` → `search(query)`; category enum → top-N categories by vector; incremental ingestion with content hashes; recall@k / nDCG on a golden set.
+- No BM25 in the POC: small candidate sets after category narrowing; whole-token BM25 would lose part-of-word matching; vectors cover the no-lexical-overlap gap. At 100K, BM25 comes with the search store (pg_search / OpenSearch) behind the same port.
+- /architect S8: threshold 0.35 (probe: relevant ≥ 0.41, junk ≤ 0.31); model expands `semanticQuery` (raw text was weak); background model load, degrades to match-only; +470 MB node_modules and a one-time 24 MB download are the cost of local inference.
