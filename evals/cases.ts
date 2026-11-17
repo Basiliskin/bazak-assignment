@@ -48,11 +48,12 @@ export const EVAL_CASES: readonly EvalCase[] = [
     turns: ["show me men's watches, most expensive first", 'show me cheaper ones'],
     expect: { intents: ['mens-watches'], cheaperThanPrevious: true },
   },
-  // ADR 0004: no keyword says "beach" well — the Recommended Group should carry it.
-  // Q1: the match group is ordered by similarity too, so it must be beach-related, not Echo/Rolex by rating.
+  // ADR 0004: no keyword says "beach" well. Q1: the match group is ordered by similarity, so it must be
+  // beach-related, not Echo/Rolex by rating. No Recommended Group is expected: it never repeats a match (D56),
+  // and a broad search matches nearly everything.
   {
     id: 'beach',
     turns: ['something for the beach'],
-    expect: { recommended: true, matchCategories: BEACH_CATEGORIES },
+    expect: { matchCategories: BEACH_CATEGORIES },
   },
 ];

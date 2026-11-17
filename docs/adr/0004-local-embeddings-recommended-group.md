@@ -31,6 +31,9 @@ Probe (2026-11-17, `@huggingface/transformers@4.3.2`, `Xenova/all-MiniLM-L6-v2` 
 - **Off-catalog turns may get recommendations (D49).** Skipping them depended on tool-call order (the model sent `report_off_catalog` and the "Instead: …" search in one step). The related search has its own `semanticQuery` ("travel bags"), and the threshold keeps unrelated Products out; in the live run it put a real bag under an otherwise empty "travel bags" group.
 - Stored Messages from before S8 load with `kind: 'match'` and `semanticQuery: ""` (D46).
 
+## Amendment (2026-11-17, D56 — replaces D50)
+- **Exclude every match again.** With only the shown page excluded, "show me smartphones" (15 matches) put more smartphones under "You might also like · Smartphones" — the Shopper read them as duplicates, not suggestions. D50's reason is gone: since D54 a broad search's matches are themselves ordered by similarity, so the beach case no longer needs the Recommended Group. A broad search now usually gets none; the eval's beach case checks match relevance only.
+
 ## Consequences
 - First start needs internet once (model download into `data/models/`). Tests use a fake `EmbeddingPort`, so they stay offline.
 - The +470 MB install is a cost of local inference.

@@ -104,5 +104,5 @@
 
 ## /developer Q1 fix
 - A relevance search with no keywords is ordered by similarity to `semanticQuery` (all indexed Products, no threshold); rating order is the fallback while the model loads or fails. Searches with keywords keep keyword scoring first.
-- Trade-off: the most similar Products now fill the match page, so the Recommended Group (shown page excluded, D50) is often short — beach went from 4 to 1 recommendation — and may repeat what "Show more" would show.
+- Trade-off: the most similar Products now fill the match page, so the Recommended Group (shown page excluded, D50) is often short — beach went from 4 to 1 recommendation — and may repeat what "Show more" would show. → D56: every match is now excluded; broad searches usually get no Recommended Group.
 - Eval: new `relevant` rule (category allow-list) for the beach case; an LLM judge was considered and rejected as non-deterministic.

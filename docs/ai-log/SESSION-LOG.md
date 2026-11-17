@@ -596,3 +596,13 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** (b) prose; A5/A6 left out of the README (still in `docs/qa-report.md`).
 **Artifacts:** `README.md` (Known limitations, How this was built) — all six sections now written.
 **Next step:** `/interview`
+
+## 2026-11-17 19:00 : fix — "You might also like" repeated matches
+
+**User input:**
+> I think the result is confusing — You might also like shows smartphones! (screenshot: "show me smartphones", 11 more match + recommended Samsung/iPhone)
+
+**Found:** `catalog.service.ts` excluded only the shown page from recommendations (D50), so the 11 hidden smartphone matches were recommended.
+**Options offered:** exclude every match (rec.; D54 already orders broad matches by similarity, which was D50's reason).
+**Decision:** D56 — exclude every match; `filterProducts` returns `matchIds`; eval beach case no longer expects a Recommended Group.
+**Artifacts:** `filter-products.ts`, `catalog.service.ts`, `recommendation.service.ts`, specs, `evals/cases.ts`, ADR 0004 amendment, architecture D50 row, README.

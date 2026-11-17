@@ -20,6 +20,7 @@ describe('filterProducts', () => {
     expect(PAGE_SIZE).toBe(4);
     expect(r.products).toHaveLength(4);
     expect(r.total).toBe(10);
+    expect(r.matchIds).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]); // every match, not just the page (D56)
     expect(ids(filterProducts(all, q({ offset: 8 })))).toHaveLength(2);
   });
 
@@ -150,6 +151,7 @@ describe('filterProducts', () => {
     expect(filterProducts([product({ id: 1 })], q({ keywords: ['flight'] }))).toEqual({
       products: [],
       total: 0,
+      matchIds: [],
     });
   });
 

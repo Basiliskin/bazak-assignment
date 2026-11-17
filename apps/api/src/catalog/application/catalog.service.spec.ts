@@ -56,7 +56,7 @@ describe('CatalogService', () => {
       };
     };
 
-    it('asks for recommendations excluding the shown page only (D50), with the same price range', async () => {
+    it('asks for recommendations excluding every match (D56), with the same price range', async () => {
       const r = recommendations();
       const many = Array.from({ length: 6 }, (_, i) => product({ id: i + 10, price: 30, category: 'tops' }));
       const service = new CatalogService(port(many), r.service);
@@ -68,7 +68,7 @@ describe('CatalogService', () => {
         semanticQuery: 'beach outfit',
         minPrice: null,
         maxPrice: 50,
-        excludeIds: [10, 11, 12, 13], // page 1 of 6 matches
+        excludeIds: [10, 11, 12, 13, 14, 15], // all 6 matches, not just page 1
       });
     });
 
@@ -97,7 +97,7 @@ describe('CatalogService', () => {
         { semanticQuery: 'beach', recommend: true },
       );
       expect(page1.products.map((p) => p.id)).toEqual([3, 1, 2]);
-      expect(r.recommend).toHaveBeenCalledWith(expect.objectContaining({ excludeIds: [3, 1, 2] })); // D50 kept
+      expect(r.recommend).toHaveBeenCalledWith(expect.objectContaining({ excludeIds: [3, 1, 2] }));
       await service.search({ ...query, maxPrice: null, offset: 4 }, { semanticQuery: 'beach' }); // "Show more"
       expect(r.similarityOrder).toHaveBeenCalledTimes(2);
       expect(r.recommend).toHaveBeenCalledTimes(1);

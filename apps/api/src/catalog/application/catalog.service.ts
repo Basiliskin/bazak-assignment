@@ -32,7 +32,7 @@ export class CatalogService {
     query: CatalogQuery,
     { semanticQuery = '', recommend = false }: SearchOptions = {},
   ): Promise<CatalogSearchResult> {
-    const { products, total } = filterProducts(
+    const { products, total, matchIds } = filterProducts(
       await this.catalog.getAll(),
       query,
       await this.similarityOrder(query, semanticQuery),
@@ -43,7 +43,7 @@ export class CatalogService {
             semanticQuery,
             minPrice: query.minPrice,
             maxPrice: query.maxPrice,
-            excludeIds: products.map((p) => p.id), // the shown page only (D50)
+            excludeIds: matchIds, // every match, not just the shown page (D56)
           })
         : [];
     return { products: products.map(toProductCard), total, recommended };

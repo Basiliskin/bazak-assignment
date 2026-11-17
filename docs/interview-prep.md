@@ -115,7 +115,7 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - Is a local embedding model within "gpt-6-luna only"? → ADR 0004 assumption.
 
 ## /developer S8
-- Why exclude only the shown page from recommendations, not every match? → D50 (beach: 190 matches left nothing).
+- Why exclude every match from recommendations, not just the shown page? → D56, replacing D50: "smartphones" recommended more smartphones; after D54 broad searches don't need the Recommended Group.
 - Why were recommendations after an off-catalog report allowed after all? → D49 (tool-call order; live eval result).
 - How do old saved conversations survive the new `kind`/`semanticQuery` fields? → D46, lenient stored schema.
 - What happens on the first chat right after startup, before the model is loaded? → D44/D47, match only.

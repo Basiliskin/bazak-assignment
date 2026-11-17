@@ -12,8 +12,8 @@ export interface RecommendRequest {
   semanticQuery: string;
   minPrice: number | null;
   maxPrice: number | null;
-  /** Products shown in the match group. Only the shown page (D50): excluding every match left nothing to
-   *  recommend after a broad search; a recommended Product may show up again on a later "Show more" page. */
+  /** Every match, on every page (D56, replaces D50): "You might also like" never repeats a match — not even
+   *  one hidden behind "Show more". A broad search may get none; its matches are already similarity-ordered (D54). */
   excludeIds: readonly number[];
 }
 

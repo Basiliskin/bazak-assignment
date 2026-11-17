@@ -40,7 +40,7 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D47 | Index sync | `RecommendationService` re-embeds in the background when `CatalogPort.getAll()` returns a new copy (single-flight), serving the old index meanwhile; warm-up on bootstrap |
 | D48 | Web output shapes | `toChatItems` accepts live `{match, recommended}` and stored single groups |
 | D49 | Off-catalog | Recommendations allowed on the related "Instead: …" search (rule by call order was flaky) |
-| D50 | Exclusions | Recommended Group excludes the shown match page only (excluding all matches left nothing after broad searches) |
+| D50 | Exclusions | ~~Recommended Group excludes the shown match page only~~ → replaced by D56: it excludes **every** match (a hidden match under "You might also like" read as a duplicate; D54 already orders broad matches by similarity) |
 | D45 | Group shape | `search_products` returns `{match, recommended \| null}`; `ProductGroupSchema.kind: 'match' \| 'recommended'`; `Message.productGroups` stays flat |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
@@ -150,7 +150,7 @@ Defined once in `packages/contracts` (`SearchProductsInputSchema`, `ReportOffCat
 | `search_products` | `label, category (24 slugs \| null), keywords[] (single words), semanticQuery (expanded description), minPrice, maxPrice, sortBy, offset, confidence (clear\|guessed), assumption` — `assumption` required when `guessed` | `filterProducts` (pure) on the cached catalog → match; `VectorIndexPort.nearest` on `embed(semanticQuery)` → recommended (offset 0 only) | `{ match: ProductGroup (≤4 + total), recommended: ProductGroup (≤4, kind 'recommended') \| null }` |
 | `report_off_catalog` | `request` | nothing (marker for UI/evals) | `{ acknowledged: true }` |
 
-`rankBySimilarity(entries, queryVector, {minPrice, maxPrice, excludeIds, minScore: 0.35, k: 4})` (pure, D41–D43): drop out of stock, outside the price range or excluded (the **shown match page**, D50) → cosine → drop < 0.35 → top 4. Category is ignored on purpose (cross-category is the point). Empty → `recommended: null`.
+`rankBySimilarity(entries, queryVector, {minPrice, maxPrice, excludeIds, minScore: 0.35, k: 4})` (pure, D41–D43): drop out of stock, outside the price range or excluded (**every match**, D56) → cosine → drop < 0.35 → top 4. Category is ignored on purpose (cross-category is the point). Empty → `recommended: null`.
 
 `filterProducts(products, query)` (pure): drop `stock === 0` (R9) → category exact match → keywords: a Product matches if **any** keyword appears inside a word (case-insensitive; plural → singular) in title, tags, brand or description, scored title 3 / tags 2 / brand 2 / description 1 (D20) → price range inclusive → sort (`relevance` = keyword score, then rating) → `slice(offset, offset + 4)` + `total`.
 

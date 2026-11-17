@@ -12,6 +12,8 @@ export type CatalogQuery = Pick<
 export interface SearchResult {
   readonly products: Product[];
   readonly total: number;
+  /** Every match on every page — what a Recommended Group must not repeat (ADR 0004, D56). */
+  readonly matchIds: number[];
 }
 
 /** Where a keyword hit counts most (D20): the title says what the Product is; descriptions mention other things. */
@@ -89,5 +91,6 @@ export function filterProducts(
   return {
     products: matches.slice(query.offset, query.offset + PAGE_SIZE).map((s) => s.product),
     total: matches.length,
+    matchIds: matches.map((s) => s.product.id),
   };
 }
