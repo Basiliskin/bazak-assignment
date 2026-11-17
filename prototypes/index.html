@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopping Copilot — UI prototypes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="shared/base.css" />
+</head>
+<body class="min-h-dvh bg-zinc-50 px-4 py-12 text-zinc-900">
+  <main class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">Shopping Copilot — UI prototypes</h1>
+    <p class="mt-2 max-w-2xl text-sm text-zinc-500">Four layout directions sharing the same data, components and behaviour (<code>shared/</code>). Each page has a <b>Scenarios</b> menu (top-right) to play: plain search, ambiguous, off-catalog, multi-intent, error + retry, broken image. Resize the window to see mobile.</p>
+    <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <a href="a-classic.html" class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+        <p class="text-xs font-semibold text-indigo-600">A · Recommended</p><h2 class="mt-1 font-semibold">Classic</h2>
+        <p class="mt-2 text-sm text-zinc-500">Persistent sidebar, chat column, card grid inside each reply. Drawer on mobile.</p></a>
+      <a href="b-carousel.html" class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+        <p class="text-xs font-semibold text-zinc-400">B</p><h2 class="mt-1 font-semibold">Carousel</h2>
+        <p class="mt-2 text-sm text-zinc-500">Icon rail sidebar, wide chat, horizontal snap carousel per Product Group.</p></a>
+      <a href="c-panel.html" class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+        <p class="text-xs font-semibold text-zinc-400">C</p><h2 class="mt-1 font-semibold">Panel</h2>
+        <p class="mt-2 text-sm text-zinc-500">Chat with group chips; results in a side panel (bottom sheet on mobile).</p></a>
+      <a href="d-widget.html" class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+        <p class="text-xs font-semibold text-zinc-400">D</p><h2 class="mt-1 font-semibold">Widget</h2>
+        <p class="mt-2 text-sm text-zinc-500">Shop page with a floating ✦ button; chat window with in-window history and ⤢ expand to A. Full screen on mobile.</p></a>
+    </div>
+  </main>
+</body>
+</html>

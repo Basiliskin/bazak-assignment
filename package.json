@@ -1,0 +1,36 @@
+{
+  "name": "shopping-copilot",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "evals"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build:contracts": "npm run build -w @app/contracts",
+    "predev": "npm run build:contracts",
+    "dev": "concurrently -k -n contracts,api,web -c gray,blue,magenta \"npm run dev -w @app/contracts\" \"npm run dev -w @app/api\" \"npm run dev -w @app/web\"",
+    "build": "npm run build --workspaces --if-present",
+    "pretest": "npm run build:contracts",
+    "test": "npm run test --workspaces --if-present",
+    "eval": "npm run build:contracts && npm run eval -w @app/evals",
+    "typecheck": "npm run build:contracts && npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.7",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0"
+  }
+}

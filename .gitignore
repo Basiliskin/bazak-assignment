@@ -9,3 +9,4 @@ coverage/
 *.sqlite
 *.db
 .claude/skills/interview/SKILL.md
+data/

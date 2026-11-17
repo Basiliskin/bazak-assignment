@@ -1,4 +1,4 @@
-# Skill Protocol (shared by product, architect, developer, qa, readme)
+# Skill Protocol (shared by product, architect, designer, developer, qa, readme)
 
 Every skill in this repo follows these rules. Read this file before acting.
 
@@ -49,6 +49,7 @@ Every skill in this repo follows these rules. Read this file before acting.
 
 ## 4. Engineering bar
 - SOLID, KISS, DRY, DDD — applied proportionally to a 3-hour build.
+- **Pure functions first (user rule, /architect round 3): functional core, imperative shell.** All business logic — filtering, mapping, validation, prompt building, history compaction, title derivation, entity changes — lives in pure functions (same input → same output, no I/O, no clock, no random, no mutation of arguments). Time and ids are passed in as arguments. Classes/services in the shell only do I/O and wire pure functions together. Entities are immutable data + pure functions that enforce their invariants. Pure functions get plain unit tests with no mocks.
 - Domain/application code has no framework imports. External systems (OpenAI, DummyJSON, storage) sit behind ports (interfaces) so tests can swap in fakes.
 - NestJS: feature modules, thin controllers, DTOs validated (`class-validator` or zod — architect decides), config via `@nestjs/config`, domain errors mapped in one exception filter, no business logic in controllers.
 - React: function components + hooks, container vs presentational split, one API client, no business rules in the UI, shared types from one contracts location (never duplicated).
@@ -69,5 +70,5 @@ End every run with:
 Prompt to paste:
 /<next-skill> <ready-to-run prompt with concrete context>
 ```
-Chain: `/product` → `/architect` → `/developer <slice>` (repeat per slice) → `/qa` → `/readme` → `/interview`.
+Chain: `/product` → `/architect` → `/designer` → `/developer <slice>` (repeat per slice) → `/qa` → `/readme` → `/interview`.
 Log the suggested next step in SESSION-LOG too.

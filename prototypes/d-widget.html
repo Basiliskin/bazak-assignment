@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>D · Widget — Shopping Copilot prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="shared/base.css" />
+  <style>
+    /* Variant D: floating launcher (FAB) → chat window. Full screen below sm. */
+    #widget { display: none; transform-origin: bottom right; }
+    body.widget-open #widget { display: flex; animation: pop .22s cubic-bezier(.2,.8,.2,1) both; }
+    body.widget-open #fab { transform: scale(0); opacity: 0; pointer-events: none; }
+    @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.96) } to { opacity: 1; transform: none } }
+    /* In-window conversation list slides over the chat view */
+    #list-view { transform: translateX(-100%); transition: transform .22s ease; }
+    body.list-open #list-view { transform: none; }
+    @media (max-width: 639px) { body.widget-open { overflow: hidden; } }
+  </style>
+</head>
+<!-- Variant D: a shop page with a floating copilot. Same shared core as A–C; only layout + 4 page actions differ. -->
+<body class="bg-zinc-50 text-zinc-900">
+  <!-- Host shop page (stand-in for the merchant's site) -->
+  <header class="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 backdrop-blur">
+    <div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 pr-36">
+      <span class="text-lg font-bold tracking-tight">dummy<span class="text-indigo-600">shop</span></span>
+      <nav class="hidden gap-5 text-sm text-zinc-500 md:flex"><span>Phones</span><span>Beauty</span><span>Accessories</span><span>Bags</span></nav>
+    </div>
+  </header>
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <div class="mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 p-8 text-white sm:p-10">
+      <p class="text-sm font-medium text-indigo-100">New</p>
+      <h1 class="mt-1 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">Not sure what you need? Ask the shopping copilot.</h1>
+      <button data-action="open-widget" class="mt-5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50">✦ Ask the copilot</button>
+    </div>
+    <h2 class="mb-3 text-sm font-semibold text-zinc-500">Popular right now</h2>
+    <div id="shop-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"></div>
+  </main>
+
+  <!-- Launcher -->
+  <button id="fab" data-action="open-widget" aria-label="Open shopping copilot"
+    class="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xl text-white shadow-lg shadow-indigo-600/30 transition hover:scale-105">✦</button>
+
+  <!-- Chat window -->
+  <section id="widget" role="dialog" aria-label="Shopping copilot"
+    class="fixed inset-0 z-50 flex-col overflow-hidden bg-zinc-50 sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[min(680px,calc(100dvh-2.5rem))] sm:w-[420px] sm:rounded-3xl sm:border sm:border-zinc-200 sm:shadow-2xl">
+    <header class="flex h-14 shrink-0 items-center gap-1 border-b border-zinc-200 bg-white px-2">
+      <button data-action="toggle-list" class="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100" aria-label="Conversations" title="Conversations">☰</button>
+      <h2 id="chat-title" class="min-w-0 flex-1 truncate px-1 text-sm font-semibold"></h2>
+      <button data-action="new-chat" class="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100" aria-label="New chat" title="New chat">＋</button>
+      <button data-action="expand" class="hidden rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 sm:block" aria-label="Open full page" title="Open full page">⤢</button>
+      <button data-action="close-widget" class="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100" aria-label="Close" title="Close">✕</button>
+    </header>
+    <div class="relative min-h-0 flex-1">
+      <div class="flex h-full flex-col">
+        <div id="scroll" class="flex-1 overflow-y-auto">
+          <div id="messages" class="flex min-h-full flex-col gap-6 px-3 py-4"></div>
+        </div>
+        <div class="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"><div id="composer-root"></div></div>
+      </div>
+      <div id="list-view" class="absolute inset-0 z-10 flex flex-col bg-white">
+        <p class="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Your conversations</p>
+        <nav id="conversation-list" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-4" aria-label="Conversations"></nav>
+      </div>
+    </div>
+  </section>
+
+  <script src="shared/catalog-data.js"></script>
+  <script src="shared/scenarios.js"></script>
+  <script src="shared/model.js"></script>
+  <script src="shared/components.js"></script>
+  <script src="shared/runtime.js"></script>
+  <script>
+    // Host page content: reuse the same ProductCard component (DRY).
+    document.getElementById('shop-grid').innerHTML = Object.values(Proto.products).map((p) => Proto.ui.ProductCard(p)).join('');
+
+    const OPEN_KEY = 'proto-widget-open';
+    const setOpen = (open) => {
+      document.body.classList.toggle('widget-open', open);
+      try { sessionStorage.setItem(OPEN_KEY, open ? '1' : ''); } catch { /* ignore */ }
+      if (open) setTimeout(() => document.getElementById('composer-input')?.focus(), 50);
+      else document.getElementById('fab').focus();
+    };
+
+    Proto.boot({
+      variant: 'D',
+      groupLayout: 'carousel',
+      actions: {
+        'open-widget': () => setOpen(true),
+        'close-widget': () => setOpen(false),
+        'toggle-list': () => document.body.classList.toggle('list-open'),
+        expand: (_el, _e, api) => { location.href = `a-classic.html${api.activeId ? `#conv=${api.activeId}` : ''}`; },
+      },
+      onBoot: (params) => {
+        let wasOpen = false;
+        try { wasOpen = sessionStorage.getItem(OPEN_KEY) === '1'; } catch { /* ignore */ }
+        if (wasOpen || params.has('open') || params.has('scenario') || params.has('conv')) document.body.classList.add('widget-open');
+        if (params.has('list')) document.body.classList.add('list-open');
+      },
+    });
+  </script>
+</body>
+</html>
