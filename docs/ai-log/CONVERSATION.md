@@ -428,3 +428,177 @@
 ### 2026-11-17T12:04:03.688Z : /architect — user
 
 > agree to recomendations
+
+### 2026-11-17T12:04:33.534Z : /architect — assistant
+
+> I've added the design step and committed it in `2d9cfaf`.
+> 
+> - **New `/designer` skill** (`.claude/skills/designer/SKILL.md`):
+>   - It first suggests 2 layout directions and up to 2 open UX questions, then waits for your answers.
+>   - Next it builds **2 clickable HTML prototypes** in `prototypes/`. Each is a single file with Tailwind, fake data shaped like the real contracts, and real catalog titles and images. A scenario menu covers: empty chat, fake streaming, a plain search with "N more", the vague request with its assumption, the "not sold here" reply, the two-item request, an error with Retry, the details popup and the broken-image placeholder, the sidebar, and a narrow screen.
+>   - You pick one or mix them, and it writes `docs/design.md` for S4–S5.
+> - **The order of steps** in `PROTOCOL.md` is now `/product → /architect → /designer → /developer → /qa → /readme → /interview`. `/architect` now hands off to `/designer`, and `/developer` reads `docs/design.md` for the page slices.
+> - **Logged** in `SESSION-LOG.md` as round 4. It notes that this reverses the earlier "no designer" choice, and why. I also added a likely interview question about that change to `interview-prep.md`.
+> 
+> ➡️ Next step:
+> ```
+> /designer build 2 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md
+> ```
+
+### 2026-11-17T12:07:46.606Z : /designer — user
+
+> /designer build 3 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md
+
+### 2026-11-17T12:08:03.030Z : /designer — assistant
+
+> You asked for **3** prototypes instead of the skill's usual 2, so I'll build 3. Before I start, here are the directions and two small UX choices.
+> 
+> ---
+> 
+> ❓ **D11 — Three layout directions** (I build all 3; you pick after clicking through them)
+> - **A — "Classic chat"**: a fixed chat list on the left and the chat in the middle. Each Product Group is a **grid of cards inside the reply** (2–4 columns depending on width). On narrow screens the chat list becomes a slide-in menu. **(Recommended as the likely winner)**
+> - **B — "Carousel"**: the chat list folds down to a thin icon strip, so the chat gets the full width. Each Product Group is a **horizontal scrolling row** of compact cards that snap into place, like streaming apps. It packs two groups into little height, but cards past the edge get hidden.
+> - **C — "Chat + results panel"**: a narrower chat on the left and a **results panel on the right** showing the card groups of the selected reply. The reply itself only shows small clickable labels like "📱 Phones under $500 (4)". This feels like a shopping copilot and gives cards more room. On mobile, the panel becomes a sheet that slides up from the bottom. Building it costs the most, and it pulls cards out of the conversation, which the assignment describes as "rendered … inside the chat".
+> 
+> ➡️ A is closest to the assignment wording ("UI widget inside the chat") and is the cheapest to build in S5. B and C are there so your choice is a real comparison, not a single option.
+> 
+> ---
+> 
+> ❓ **D12 — How the AI's guess is shown for "something cheap and cool"**
+> - (a) **A label at the top of the card group**: `💡 Assumed: trendy accessories under $30`, plus the follow-up question as normal text at the end of the reply. **(Recommended)**
+> - (b) **Text only**: the reply's sentence states the assumption, with no special styling.
+> 
+> ➡️ (a). The guess is visible right next to the products it explains, and it maps 1:1 to the `assumption` field in the search tool's input, so the code can't forget to show it.
+> 
+> ---
+> 
+> ❓ **D13 — How "a flight to Tokyo" looks**
+> - (a) **A small neutral notice inside the reply**: `🚫 Not sold here: flights`. Any suggestions come below it as a normal group labelled "You might like instead". **(Recommended)**
+> - (b) **Text only**: the reply says the shop doesn't sell flights, with no notice.
+> 
+> ➡️ (a). It shows the "can't help with that" case at a glance and comes straight from the `report_off_catalog` tool, so the UI behaves the same whatever wording the AI uses.
+> 
+> **Default:** an empty new chat shows 4 example buttons. One is a plain request; the other three are the tricky ones: "something cheap and cool", "a phone under $500 and a lipstick", "a flight to Tokyo". This also makes it easy for a reviewer to try the hard cases.
+
+### 2026-11-17T12:09:26.542Z : /designer — user
+
+> agree to recomendations
+>  - the structure must be modular/flexable as possible - and modern UI , mobile friendly, responsive
+
+### 2026-11-17T12:16:59.697Z : /designer — assistant
+
+> The three prototypes are ready. I checked them at desktop width (1440px) and phone width (390px) with headless Chrome.
+> 
+> **To open them:**
+> ```
+> open prototypes/index.html
+> ```
+> Each page has a **Scenarios** menu (top right) that plays:
+> - empty chat
+> - a plain search, with "N more" and Show more
+> - "something cheap and cool"
+> - "a flight to Tokyo"
+> - phone + lipstick
+> - an error partway through a reply, then Retry
+> - a broken image
+> 
+> Past conversations are in the sidebar, so you can also try "continue an old chat". Narrow the window to see the phone layout. You can also link straight to a state: `a-classic.html#scenario=multiIntent`, `#product=132`, `#sidebar`.
+> 
+> | | Desktop | Phone |
+> |---|---|---|
+> | **A · Classic** | Fixed chat list, chat column, a 4-column card grid inside each reply | Chat list slides in as a menu; 2-column grid |
+> | **B · Carousel** | Chat list folds down to letter icons; cards in a horizontal swipe row | Swipe row with the next card peeking in (good for thumbs) |
+> | **C · Panel** | Chat with group labels you click; results panel on the right | Results slide up from the bottom when a label is tapped |
+> 
+> **How the code is split** (your "modular" requirement):
+> - `shared/model.js`: pure logic, such as building a card group, "N more", and chat titles.
+> - `shared/components.js`: pure render functions, one per component in `architecture.md`. Card layouts are a small lookup table, so adding a layout means adding one entry.
+> - `shared/runtime.js`: the only part with state, timers and the page.
+> - `shared/scenarios.js` and `shared/catalog-data.js`: data generated from the real catalog.
+> - Each `*.html` file only sets its own layout and calls `Proto.boot({ groupLayout: 'grid' | 'carousel' | 'chips' })`.
+> 
+> **Already applied:**
+> - The assumption label sits at the top of the card group.
+> - The "Not sold here: flights" notice shows above an "Instead: travel-friendly bags" group.
+> - Popups close with Esc, ✕, or a click outside, and focus returns to where it was.
+> - Animations are reduced for people who turn motion off.
+> 
+> ---
+> 
+> ❓ **D14 — Which direction?** Choose A, B, C, or a mix (for example "A layout + B's swipe row on phone only"), plus any changes.
+> ➡️ **A**, perhaps with B's swipe row on phones. A matches "widget inside the chat" most literally and the grid compares products best on desktop. On a phone, a swipe row is shorter than a 2×2 grid. C looks the most like a product but moves the cards out of the chat, which goes against the assignment's wording.
+> 
+> ❓ **D15 — Something I found while building: out-of-stock products.** 4 of the 194 products have `stock: 0`. For example, the Samsung Galaxy S8 shows up for "phone under $500" but is out of stock (open `#product=132` to see it).
+> - (a) **Hide out-of-stock products from searches** (one line in `filterProducts`), and say so in the README. **(Recommended)**
+> - (b) Show them with an "Out of stock" label, as now.
+> - (c) Show them, but list them last.
+> 
+> ➡️ (a). Suggesting something the shopper can't buy is a bad shopping experience, and the rule is one pure, tested line.
+
+### 2026-11-17T12:26:50.606Z : /designer — user
+
+> usually assistant is floating fab on the right bottom - and when clicking it open chat window , no ?
+
+### 2026-11-17T12:27:09.126Z : /designer — assistant
+
+> Yes. For a copilot that lives **inside a shop**, a floating button in the bottom-right corner that opens a chat window is the common pattern (Intercom, Zendesk, Shopify's assistant). None of A, B or C is like that: they're all full-page chat apps.
+> 
+> How the floating window would fit this assignment:
+> 
+> | | Floating chat window | Full-page app (A/B/C) |
+> |---|---|---|
+> | Product story | ✅ "A copilot on top of a shop", which matches the assignment's title | It's a separate chat app |
+> | Room for cards | ~400px wide, so cards need a swipe row or 1–2 columns (B's cards fit) | A wide grid |
+> | Chat list (a required feature) | Needs a second screen inside the window ("← Chats"), so it's less visible | Always visible in the sidebar |
+> | Phone | Becomes full-screen when opened, so it behaves like a full-page app anyway | Same |
+> | Extra work | A fake **shop page** behind it (a product grid from the catalog). The server side doesn't change | — |
+> 
+> A common middle ground: the floating window has an **⤢ Expand** button that opens the full-page view (A) for long sessions.
+> 
+> Thanks to the shared modules, a new layout is just one new page plus settings, so it's cheap to build and compare. It's also a good test that the "modular" requirement holds.
+> 
+> ---
+> 
+> ❓ **D16 — Add a floating-window version?**
+> - (a) **Build D · Widget.** A simple shop page (catalog grid) with a ✦ button in the bottom-right corner that opens a 400×640 chat window. The window's top bar has a list button (shows past chats inside the window), ＋ new chat, ⤢ expand (opens A's full page with the same chat), and ✕. Cards appear as B's swipe row. On a phone the window fills the screen. The open/closed state is remembered for the session. Then you pick between A, B, C and D. **(Recommended)**
+> - (b) Don't build it. Keep A–C, and mention "embeddable widget" in the README under "with more time".
+> 
+> ➡️ (a). It takes about 15 minutes and gives you a real product argument in the interview: *"the same chat core runs as a full page or as a widget embedded in a shop."*
+> 
+> D14 (which direction) and D15 (hide out-of-stock products, recommended) stay open. Answer them after you've seen D, or answer D15 now.
+
+### 2026-11-17T12:27:57.196Z : /designer — user
+
+> go ahead
+
+### 2026-11-17T12:29:21.479Z : /designer — assistant
+
+> **D · Widget is built**, and I checked it on desktop and on a phone.
+> 
+> ```
+> open prototypes/d-widget.html
+> ```
+> 
+> - **Desktop:** a shop page ("dummyshop", with a product grid using the same `ProductCard` component) and a ✦ button in the bottom-right corner. It opens a 420×680 chat window over the page. The window's top bar has:
+>   - ☰ to show past chats inside the window
+>   - ＋ to start a new chat
+>   - ⤢ to open the same chat full-page in A (the chat carries over through session storage)
+>   - ✕ to close
+> - **Phone:** the chat window fills the screen, cards are in a swipe row, and the chat list slides over the chat.
+> - **Remembered:** whether the window is open survives a refresh, and so do the chats, within the browser tab session.
+> 
+> D is also a good test of the modular structure. It needed **zero changes to the components** and just 4 page-specific actions passed to `Proto.boot({ actions })`. The shared runtime only gained a generic way to accept such actions, plus session saving. All four variants now appear in the Scenarios menu and on `prototypes/index.html`.
+> 
+> **One thing D shows clearly:** the chat list is hidden behind ☰. It's still one tap away and meets the "view and continue past chats" requirement, but it's less visible than in A.
+> 
+> ---
+> 
+> ❓ **D14 — Which direction?** A, B, C, D, or a mix.
+> ➡️ **D on top of A**: the floating window is the main experience, using B's swipe row because it's narrow, and ⤢ opens A as the full-page view for long sessions and browsing history. The React components are the same either way (shared `MessageBubble`, `ProductGroup`, `ProductCard`). Only the outer shell differs: `<WidgetShell>` vs `<PageShell>`. It costs about 20–30 minutes more in S4 than A alone. If time gets tight, A alone is the fallback, since D reuses everything in it.
+> 
+> ❓ **D15 — Hide out-of-stock products from searches?** (4 of 194 have `stock: 0`, for example the Samsung Galaxy S8.)
+> ➡️ (a) Hide them in `filterProducts` and mention it in the README. **(Recommended)**
+
+### 2026-11-17T12:30:14.960Z : /designer — user
+
+> agree

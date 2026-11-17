@@ -1,0 +1,31 @@
+/* Shared styles for all prototype variants. Layout-specific rules live in each page's <style>. */
+html, body { height: 100%; }
+body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Typing dots + streaming caret */
+.dot { width: 6px; height: 6px; border-radius: 9999px; background: #a1a1aa; animation: blink 1.2s infinite ease-in-out; }
+.dot:nth-child(2) { animation-delay: .15s; } .dot:nth-child(3) { animation-delay: .3s; }
+.caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; border-radius: 2px; background: #6366f1; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+
+/* Entrance animations (respect reduced motion) */
+.animate-in { animation: rise .28s ease-out both; }
+.fade-in { animation: fade .2s ease-out both; }
+.sheet-in { animation: sheet .28s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sheet { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Off-canvas sidebar drawer below lg (shared by all variants) */
+#sidebar-backdrop { display: none; }
+@media (max-width: 1023px) {
+  #sidebar { position: fixed; inset: 0 auto 0 0; z-index: 45; transform: translateX(-100%); transition: transform .25s ease; }
+  body.sidebar-open #sidebar { transform: none; box-shadow: 0 10px 40px rgb(0 0 0 / .15); }
+  body.sidebar-open #sidebar-backdrop { display: block; }
+}
+
+.scenario-menu summary::-webkit-details-marker { display: none; }

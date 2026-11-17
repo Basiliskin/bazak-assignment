@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>B · Carousel — Shopping Copilot prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="shared/base.css" />
+  <style>
+    /* Variant B: sidebar collapses to an icon rail on desktop (expand with ⇤/⇥); drawer below lg (base.css). */
+    @media (min-width: 1024px) {
+      #sidebar { width: 4.5rem; transition: width .22s ease; }
+      body.rail-expanded #sidebar { width: 18rem; }
+      body:not(.rail-expanded) #sidebar .conv-text,
+      body:not(.rail-expanded) #sidebar .rail-label { display: none; }
+      body:not(.rail-expanded) #sidebar .conv-icon { display: flex; }
+      body:not(.rail-expanded) #sidebar .conv-item { justify-content: center; padding-left: 0; padding-right: 0; }
+    }
+    @media (max-width: 1023px) { #sidebar { width: 18rem; } }
+  </style>
+</head>
+<!-- Variant B: collapsible rail + full-width chat; each Product Group is a horizontal snap carousel. -->
+<body class="bg-white text-zinc-900">
+  <div class="flex h-dvh">
+    <aside id="sidebar" class="flex shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50">
+      <div class="flex h-14 items-center gap-2 px-3.5">
+        <button data-action="toggle-rail" class="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-200 lg:flex" aria-label="Toggle sidebar">☰</button>
+        <span class="rail-label truncate font-semibold tracking-tight">Shopping Copilot</span>
+        <button data-action="toggle-sidebar" class="ml-auto rounded-lg p-2 text-zinc-500 hover:bg-zinc-200 lg:hidden" aria-label="Close menu">✕</button>
+      </div>
+      <div class="px-3 pb-2">
+        <button data-action="new-chat" title="New chat" class="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700">
+          <span class="text-base leading-none">＋</span><span class="rail-label">New chat</span>
+        </button>
+      </div>
+      <nav id="conversation-list" class="flex-1 space-y-1 overflow-y-auto px-2 py-2" aria-label="Conversations"></nav>
+    </aside>
+    <div id="sidebar-backdrop" data-action="toggle-sidebar" class="fixed inset-0 z-40 bg-zinc-950/30 lg:hidden"></div>
+
+    <main class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-14 shrink-0 items-center gap-2 px-3 pr-36 sm:px-5 sm:pr-36">
+        <button data-action="toggle-sidebar" class="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden" aria-label="Open conversations">☰</button>
+        <h1 id="chat-title" class="truncate text-base font-semibold tracking-tight"></h1>
+      </header>
+      <div id="scroll" class="flex-1 overflow-y-auto">
+        <div id="messages" class="mx-auto flex min-h-full max-w-4xl flex-col gap-8 px-4 py-4 sm:px-8"></div>
+      </div>
+      <div class="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-8">
+        <div id="composer-root"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="shared/catalog-data.js"></script>
+  <script src="shared/scenarios.js"></script>
+  <script src="shared/model.js"></script>
+  <script src="shared/components.js"></script>
+  <script src="shared/runtime.js"></script>
+  <script>Proto.boot({ variant: 'B', groupLayout: 'carousel' });</script>
+</body>
+</html>

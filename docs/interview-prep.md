@@ -28,3 +28,11 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - What does "functional core, imperative shell" mean in your code? Show a pure function and its test. → PROTOCOL §4, `catalog/domain/filter-products.ts`
 - Your e2e uses a mock model — what can't it catch? → architecture.md Testing
 - You first skipped a design step, then added one — why? → SESSION-LOG /architect round 4
+
+## /designer
+- Why a floating widget *and* a full page? Isn't that double work? → `docs/design.md` (shared ChatView + components; only shells differ; A is the fallback)
+- Where does the widget remember the open conversation, and what if that's cleared? → design.md "State", ADR 0003 amendment
+- Why not the results-panel layout (C)? → design.md "Rejected"
+- Why hide out-of-stock products instead of labelling them? → requirements R9
+- How did you make the prototypes modular, and how does that carry into React? → `prototypes/shared/` (pure model + pure render functions + one runtime) ↔ presentational components + containers
+- Accessibility: what happens to keyboard focus when the dialog opens/closes? → design.md "Accessibility"

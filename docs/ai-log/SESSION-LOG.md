@@ -165,3 +165,46 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D9 (a) · D10 (a). Reverses the setup decision "no designer" (Q2) — the UI carries product decisions (Assumption display, off-catalog, multi-intent groups, error/retry) that deserve visible options.
 **Artifacts:** `.claude/skills/designer/SKILL.md`; PROTOCOL chain; `/architect` hand-off → `/designer`; `/developer` reads `docs/design.md` for web slices.
 **Next step:** `/designer build 2 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md`
+
+## 2026-11-17 15:25 : /designer — directions & UX questions
+
+**User input:**
+> build 3 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md
+
+**Options offered:**
+- D11 Directions (all 3 built, user picks after): A classic sidebar + in-reply card grid (rec.) / B collapsible rail + horizontal carousel per group / C chat + right results panel (bottom sheet on mobile).
+- D12 Assumption display: (a) chip in group header + follow-up as text (rec.) / (b) text only.
+- D13 Off-catalog display: (a) neutral "Not sold here" notice + "You might like instead" group (rec.) / (b) text only.
+- Default: empty state with 4 example prompts (incl. the 3 tricky ones).
+
+**User input:**
+> agree to recomendations
+>  - the structure must be modular/flexable as possible - and modern UI , mobile friendly, responsive
+
+**Decision:** build A, B, C · D12 (a) · D13 (a) · default accepted. New constraint: prototypes are modular — shared data + pure render functions + one runtime, each variant only defines its layout (overrides the skill's "single self-contained file"; plain `<script>` tags so it still opens from file:// with no build).
+
+## 2026-11-17 16:05 : /designer — prototypes, widget, choice
+
+**Built:** `prototypes/` — shared modules (`catalog-data.js` from live DummyJSON, `scenarios.js`, `model.js` pure, `components.js` pure render functions, `runtime.js` shell, `base.css`) + layout pages A classic, B carousel, C panel; verified in headless Chrome at 1440px and 390px. Fixed: mobile placeholder wrap, dialog ✕ placement, "Only 0 left" → "Out of stock", drawer shadow leak.
+
+**Options offered:**
+- D14 Direction: A / B / C / mix (rec. A, maybe B's carousel on phones).
+- D15 Out-of-stock (found while building — 4 of 194 have stock 0, e.g. Samsung Galaxy S8 in "phones under $500"): (a) hide in `filterProducts` (rec.) / (b) show with label / (c) show last.
+
+**User input:**
+> usually assistant is floating fab on the right bottom - and when clicking it open chat window , no ?
+
+**Options offered:**
+- D16: (a) build D · Widget — shop page + FAB → chat window with in-window history, ⤢ expand to A, full screen on phones (rec.) / (b) don't build, README "with more time".
+
+**User input:**
+> go ahead
+
+**Built:** `prototypes/d-widget.html` — zero component changes; runtime gained generic page `actions` + session persistence. Re-offered D14 with rec. "D on top of A" (widget primary, carousel in widget, ⤢ → A full page; A alone as fallback) and D15 (a).
+
+**User input:**
+> agree
+
+**Decision:** D14 = D on top of A · D15 (a) → new rule R9 + AC3.9 · D16 (a).
+**Artifacts:** `docs/design.md`; `docs/requirements.md` (R9, AC3.9, US6b, scope); `docs/architecture.md` (D14 row, R9 in filter, `GET /api/products?limit=10`, routes `/` + `/chat/:id`, shells, localStorage pointer, slices S4–S7 with S7 widget cut-first); ADR 0003 amendment; `prototypes/`.
+**Next step:** `/developer S0 scaffold + tooling from docs/architecture.md`

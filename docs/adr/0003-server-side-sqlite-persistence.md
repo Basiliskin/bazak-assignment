@@ -14,3 +14,6 @@ SQLite file via Node's built-in `node:sqlite` (no native dependency). The client
 
 ## Consequences
 Everyone using the same server sees the same Conversation list (acceptable without auth; documented assumption). Adding users later = a `shopperId` column plus auth.
+
+## Amendment (2026-11-17, /designer D14)
+The embedded widget lives on a shop URL that cannot carry `/chat/:id`, so it keeps a **pointer** (active Conversation id + open flag) in `localStorage`. Losing or corrupting it only means the widget opens on a new chat; no Conversation data lives in the browser.

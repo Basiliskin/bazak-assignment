@@ -17,6 +17,7 @@ Source: `docs/assignment.md`. Terms: `GLOSSARY.md`. Decisions: `docs/ai-log/SESS
 | R6 | Price constraints ("under $500") are respected exactly: no Product above the limit is shown. |
 | R7 | Each Product Group shows up to **4** Product Cards plus "N more match" when there are more. |
 | R8 | If a search returns nothing, say so and suggest a broader alternative — never an empty group with no explanation. |
+| R9 | Out-of-stock Products (`stock: 0`, 4 of 194) are never shown in search results. |
 
 ## User stories and acceptance criteria
 
@@ -40,6 +41,7 @@ As a Shopper I want the Assistant to find relevant Products so that I get real o
 - **AC3.5 (multi-intent)** Given "a phone under $500 and a lipstick", then two labelled Product Groups are shown — phones ≤ $500 and lipsticks (R4).
 - **AC3.6 (follow-up)** Given a previous reply showed phones, when I say "show me cheaper ones", then the new phones are cheaper than the cheapest shown before, or the reply says none exist (R5).
 - **AC3.7 (no results)** Given a request with no matching Products, then the reply says so and suggests a broader search (R8).
+- **AC3.9 (out of stock)** Given a search whose category contains an out-of-stock Product (e.g. Samsung Galaxy S8), then it never appears in the Product Group (R9).
 - **AC3.8 (catalog down)** Given the Catalog is unreachable, then the Assistant says it can't search right now — no invented Products, no crash.
 
 ### US4 — Product Cards in chat
@@ -57,6 +59,12 @@ As a Shopper I want my chats kept after a refresh so that I don't lose them.
 - **AC5.3** Given storage is cleared mid-Conversation, then the next action does not crash; the Shopper either continues in a new Conversation or sees a clear notice.
 - **AC5.4** Given storage is full / write fails, then the Shopper is told the chat may not be saved; the current session keeps working.
 
+### US6b — Embedded copilot (design D14)
+As a Shopper browsing the shop I want to open the copilot from any page so that I can ask without leaving.
+- **AC6b.1** A floating ✦ button opens a chat window; ✕ closes it; on phones the window is full screen.
+- **AC6b.2** The window shows past Conversations (☰), starts new ones (＋), and ⤢ opens the same Conversation as a full page.
+- **AC6b.3** After a refresh the window reopens on the same Conversation if it was open.
+
 ### US6 — Conversation management
 As a Shopper I want to start new chats and go back to old ones so that I can keep separate searches.
 - **AC6.1** "New chat" starts an empty Conversation; the previous one stays in the list.
@@ -71,8 +79,8 @@ As the reviewer I want proof the core flow works so that I can trust the submiss
 - **AC7.3** One command runs each suite; results are recorded in `docs/qa-report.md`.
 
 ## Scope (MoSCoW, ~3h)
-- **Must:** US1, US2 (AC2.1–2.2), US3 (AC3.1–3.5, 3.7, 3.8), US4 (AC4.1, 4.2, 4.5), US5, US6 (AC6.1–6.3), US7.
-- **Should:** details popup (AC4.3), show more (AC4.4), Follow-ups (AC3.6), error + Retry (AC2.3).
+- **Must:** US1, US2 (AC2.1–2.2), US3 (AC3.1–3.5, 3.7–3.9), US4 (AC4.1, 4.2, 4.5), US5, US6 (AC6.1–6.3), US7.
+- **Should:** details popup (AC4.3), show more (AC4.4), Follow-ups (AC3.6), error + Retry (AC2.3), embedded widget shell (US6b — full page A is the Must fallback).
 - **Could:** delete Conversation (AC6.4), stop-generation button.
 - **Won't:** auth/accounts, cart/checkout, rename Conversations, LLM-generated titles, multi-language, deployment.
 

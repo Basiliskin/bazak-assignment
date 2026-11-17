@@ -12,6 +12,7 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D5 | Persistence | **Server-side SQLite** (`node:sqlite`), client sends only the new message — ADR 0003 |
 | D6 | Structure | npm workspaces: `apps/api`, `apps/web`, `packages/contracts`; Nest modules `catalog`, `conversations`, `assistant` with ports |
 | D7 | Frontend | Vite + React + React Router + `useChat` + TanStack Query + Tailwind |
+| D14 | UI shells | **Widget on a shop page (primary) + full page (⤢)**, same components — `docs/design.md` |
 | D8 | Tests | Unit (pure functions) · API e2e with `MockLanguageModel` · one component test · live eval script with coded rule checks |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -62,7 +63,8 @@ apps/
       presentation/    chat.controller.ts  POST /api/chat
   web/src/
     api/               client.ts (fetch wrapper), queries.ts (TanStack Query hooks)
-    chat/              ChatPage.tsx (container), useShoppingChat.ts (useChat wiring),
+    shells/            WidgetShell.tsx, PageShell.tsx, ShopPage.tsx (containers)
+    chat/              ChatView.tsx (container), useShoppingChat.ts (useChat wiring),
                        to-product-groups.ts (UI message parts → ProductGroup[])    ← pure
     conversations/     ConversationSidebar.tsx (container), ConversationList.tsx
     components/        MessageBubble, ProductGroup, ProductCard, ProductDetailsDialog
@@ -107,7 +109,7 @@ Defined once in `packages/contracts` (`SearchProductsInputSchema`, `ReportOffCat
 | `search_products` | `label, category (24 slugs \| null), keywords[] (single words), minPrice, maxPrice, sortBy, offset, confidence (clear\|guessed), assumption` — `assumption` required when `guessed` | `filterProducts` (pure) on the cached catalog | `ProductGroup` (≤4 cards + `total`) |
 | `report_off_catalog` | `request` | nothing (marker for UI/evals) | `{ acknowledged: true }` |
 
-`filterProducts(products, query)` (pure): category exact match → keywords: a Product matches if **any** keyword appears (case-insensitive) in title, description, brand or tags, scored by match count → price range inclusive → sort (`relevance` = keyword score, then rating) → `slice(offset, offset + 4)` + `total`.
+`filterProducts(products, query)` (pure): drop `stock === 0` (R9) → category exact match → keywords: a Product matches if **any** keyword appears (case-insensitive) in title, description, brand or tags, scored by match count → price range inclusive → sort (`relevance` = keyword score, then rating) → `slice(offset, offset + 4)` + `total`.
 
 ## Query-type behaviour
 | Request | What the model does (prompt) | What the code guarantees |
@@ -130,6 +132,7 @@ System prompt (`buildSystemPrompt(categories)`, pure): role, the 24 categories, 
 | GET | `/api/conversations` | `ConversationSummary[]`, newest `updatedAt` first |
 | GET | `/api/conversations/:id` | `Conversation` (404 if unknown) |
 | DELETE | `/api/conversations/:id` | 204 (Could) |
+| GET | `/api/products?limit=10` | `ProductCard[]` top-rated, in stock — shop page grid |
 | GET | `/api/products/:id` | `ProductDetails` (details popup) |
 
 Errors: domain errors (`ConversationNotFound`, `CatalogUnavailable`) → `DomainExceptionFilter` → `{ error: { code, message } }`. Inside a stream, failures are sent as an `error` part, never a dropped connection.
@@ -139,8 +142,8 @@ SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id,
 
 | Situation | Behaviour |
 |---|---|
-| Page refresh | URL `/c/:id` → `GET /api/conversations/:id` → same history + cards |
-| Browser storage cleared | Nothing lost — the browser stores nothing but the URL |
+| Page refresh | Full page: URL `/chat/:id`; widget: id from `localStorage` → `GET /api/conversations/:id` → same history + cards |
+| Browser storage cleared | Nothing lost — widget forgets which Conversation was open and starts a new chat; all Conversations remain in ☰ / sidebar |
 | Unknown / deleted conversation id in URL | 404 → web shows "Conversation not found" + New chat |
 | Corrupted row (`payload_json` fails zod) | Row skipped and logged; rest of the Conversation loads |
 | DB file unreadable at startup | API logs error and fails fast with a clear message (local app) |
@@ -151,10 +154,12 @@ SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id,
 **History sent to the LLM**: last 20 Messages (`compactHistory`, pure); older Product Groups reduced to `{label, products:[{id,title,price}]}`.
 
 ## Frontend
-- Routes: `/` (new chat, client generates `conversationId = crypto.randomUUID()`), `/c/:id`.
+- Routes: `/` = `ShopPage` + `WidgetShell` (primary); `/chat` (new) and `/chat/:id` = `PageShell` full page. New Conversations get `conversationId = crypto.randomUUID()` on the client.
+- Shells: `WidgetShell` (FAB, window, in-window list, ⤢ → `/chat/:id`) and `PageShell` (sidebar) both render the same `ChatView`; `ProductGroup` takes `layout: 'grid' | 'carousel'` (widget = carousel). See `docs/design.md`.
+- Widget state: active Conversation id + open flag in `localStorage` (pointer only, read with try/catch; invalid → new chat).
 - `useShoppingChat(conversationId)` wraps `useChat` with a transport that sends only `{conversationId, message}`; initial messages come from `GET /api/conversations/:id` (TanStack Query).
 - `toProductGroups(parts)` (pure) maps `search_products` tool-output parts → `ProductGroup[]`; the same `ProductGroup` component renders live and stored messages (DRY).
-- Containers (`ChatPage`, `ConversationSidebar`) fetch; presentational components only render props.
+- Containers (`ChatView`, shells) fetch; presentational components only render props.
 - Image fallback via `onError` → placeholder (AC4.5). Details popup fetches `GET /api/products/:id`.
 
 ## Testing & evaluation
@@ -174,6 +179,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`. | AC3.2 (filter), AC3.7, AC3.8 |
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModel`. | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
-| **S4** Web chat + sidebar | Routes, `useShoppingChat`, streaming text bubbles, typing state, input disable, error + Retry, sidebar list (TanStack Query) with New chat and switching. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
-| **S5** Product cards | `toProductGroups` (pure), `ProductGroup`/`ProductCard` (image fallback, discount badge, "N more" + Show more), `ProductDetailsDialog`; component test. | AC4.x |
-| **S6** Eval suite | `evals/cases.ts` (6 cases), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. | AC7.2–7.3 |
+| **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
+| **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. | AC4.x, R2–R4 display |
+| **S6** Eval suite | `evals/cases.ts` (6 cases + out-of-stock), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. | AC7.2–7.3 |
+| **S7** Widget + shop page (D) | `GET /api/products?limit=10`, `ShopPage`, `WidgetShell` (FAB, window, in-window list, ⤢, localStorage pointer), carousel layout, full screen on phones. Cut first if time is short. | US6b |

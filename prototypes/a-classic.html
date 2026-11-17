@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>A · Classic — Shopping Copilot prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="shared/base.css" />
+</head>
+<!-- Variant A: persistent sidebar (drawer below lg) + chat column; Product Groups as a card grid inside the reply. -->
+<body class="bg-zinc-50 text-zinc-900">
+  <div class="flex h-dvh">
+    <aside id="sidebar" class="flex w-72 shrink-0 flex-col border-r border-zinc-200 bg-white">
+      <div class="flex h-14 items-center justify-between px-4">
+        <a href="index.html" class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-xs text-white">✦</span>Shopping Copilot
+        </a>
+        <button data-action="toggle-sidebar" class="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 lg:hidden" aria-label="Close menu">✕</button>
+      </div>
+      <div class="px-3 pb-2">
+        <button data-action="new-chat" class="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800">
+          <span class="text-base leading-none">＋</span> New chat
+        </button>
+      </div>
+      <p class="px-5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Conversations</p>
+      <nav id="conversation-list" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-4" aria-label="Conversations"></nav>
+    </aside>
+    <div id="sidebar-backdrop" data-action="toggle-sidebar" class="fixed inset-0 z-40 bg-zinc-950/30 backdrop-blur-[1px] lg:hidden"></div>
+
+    <main class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-14 shrink-0 items-center gap-2 border-b border-zinc-200/80 bg-white/80 px-3 pr-36 backdrop-blur sm:px-4 sm:pr-36">
+        <button data-action="toggle-sidebar" class="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden" aria-label="Open conversations">☰</button>
+        <h1 id="chat-title" class="truncate text-sm font-medium text-zinc-700"></h1>
+      </header>
+      <div id="scroll" class="flex-1 overflow-y-auto">
+        <div id="messages" class="mx-auto flex min-h-full max-w-3xl flex-col gap-7 px-4 py-6 sm:px-6"></div>
+      </div>
+      <div class="shrink-0 bg-gradient-to-t from-zinc-50 via-zinc-50 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-6">
+        <div id="composer-root"></div>
+        <p class="mt-1.5 text-center text-[11px] text-zinc-400">Prototype · fake data from the real DummyJSON catalog</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="shared/catalog-data.js"></script>
+  <script src="shared/scenarios.js"></script>
+  <script src="shared/model.js"></script>
+  <script src="shared/components.js"></script>
+  <script src="shared/runtime.js"></script>
+  <script>Proto.boot({ variant: 'A', groupLayout: 'grid' });</script>
+</body>
+</html>

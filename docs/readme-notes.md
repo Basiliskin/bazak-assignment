@@ -22,3 +22,9 @@
 - Code style: functional core (pure functions, mock-free unit tests), imperative shell (Nest services/adapters do I/O).
 - Assumption: no auth → one shared Conversation list per server.
 - With more time: Playwright E2E, LLM-judge evals, structured-output pipeline fallback if the model skips `assumption`.
+
+## /designer
+- UI: copilot as a floating widget on a shop page (primary) + full-page view via ⤢; same components, different shells. 4 directions prototyped (`prototypes/`), B and C rejected (carousel hides products on desktop; results panel moves cards out of the chat).
+- Out-of-stock Products hidden from results (R9) — found while prototyping.
+- Widget keeps only a pointer (active Conversation id) in localStorage; clearing it loses nothing.
+- With more time: dark mode, keyboard shortcuts, virtualised long threads, widget as an embeddable script for any site.
