@@ -8,3 +8,4 @@ coverage/
 .DS_Store
 *.sqlite
 *.db
+.claude/skills/interview/SKILL.md
