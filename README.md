@@ -17,11 +17,11 @@ npm run dev
 - The API won't start without `OPENAI_KEY`, or with any model other than `gpt-6-luna`.
 - Conversations are stored in `data/app.db` (SQLite, created on first start). Delete the file to reset.
 
-| Command | What it does |
-|---|---|
-| `npm test` | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB). |
-| `npm run eval` | 7 live cases against `gpt-6-luna` and the real catalog (~40 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
-| `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build. |
+| Command                                                | What it does                                                                                                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                             | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB).                                         |
+| `npm run eval`                                         | 7 live cases against `gpt-6-luna` and the real catalog (~40 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
+| `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build.                                                                                                                  |
 
 ## Architecture & framework choice
 
@@ -37,6 +37,7 @@ flowchart LR
 I used the **Vercel AI SDK v7** (ADR 0001). The assignment has three hard parts: a tool-calling loop, token streaming with tool results mixed in, and chat state in the browser. The SDK covers all three. `streamText` runs the loop in the API (two tools, at most 3 steps, last step text only), a NestJS controller pipes its UI message stream (SSE), and `useChat` renders it. It also solved a gpt-6-luna quirk: the model rejects function tools on `/chat/completions`, and the SDK uses the Responses API. SDK types stay in two adapter folders. The database stores my own `Message` shape, so switching frameworks would touch only those adapters.
 
 Alternatives I rejected:
+
 - **From scratch with the `openai` SDK.** About 200 extra lines for the tool loop, stream protocol and client parser. That's an hour of a 3-hour budget with nothing the user would see.
 - **LangChain / Mastra.** Mastra brings its own server and storage, which would compete with NestJS. LangChain adds layers of abstraction around what is a single tool loop.
 - **assistant-ui / CopilotKit.** They own the whole chat UI (and CopilotKit a backend runtime), which hides exactly the streaming and persistence logic this README has to explain.
@@ -66,6 +67,7 @@ I keep Conversations on the server, in a SQLite file (`data/app.db`, Node's buil
 I rejected localStorage because clearing site data would lose the chat mid-conversation, the ~5 MB quota fills up with Product Groups, and history sent from the client can be edited. IndexedDB has the same loss-on-clear problem. The cost of the server approach is that, with no auth, everyone on one server shares one Conversation list.
 
 What happens when things go wrong:
+
 - **Browser storage cleared:** nothing is lost. The widget starts a new chat, and every Conversation is still in the list.
 - **Corrupted data:** each Message is checked with zod when it's read. A bad row is skipped and logged, and the rest of the chat loads. A bad widget pointer just opens a new chat.
 - **Storage full or a write fails:** the Shopper's Message is saved before the model runs. If saving the reply fails, the Shopper still sees it stream, followed by "Your reply was shown but could not be saved."
@@ -83,6 +85,7 @@ There are two suites, split by cost. `npm test` runs offline with no key: pure f
 The eval earned its place. After S8 it went from 5/7 to 7/7: a broad search left nothing to recommend, and recommendations depended on the order of tool calls. Earlier live runs found the model searching for "flight" three times without replying, "Show more" changing the sort order, and empty "Travel bags" groups under off-catalog replies.
 
 What gets through:
+
 - **Meaning:** Q1 passed 7/7 while showing an Echo under "Beach essentials". Only the beach case checks relevance now.
 - **Wording:** tone, and whether an Assumption makes sense, aren't checked.
 - **Model variance:** each case runs once, so a pass means the feature worked once, not a pass rate.
@@ -97,6 +100,7 @@ The weakest part is relevance. Results are only as good as the category and keyw
 It's also slow: about 5–6 s per turn with tools, and "Show more" costs another model call because it goes through the LLM instead of a paging endpoint. The local embedding model adds about 470 MB to `node_modules`. If it fails to load, every search retries and logs a warning. In a multi-intent turn, a recommendation can repeat a Product from the other intent. A bad API key gets the same "try again" message as a temporary failure, so Retry can't help, and `minPrice > maxPrice` isn't rejected and just returns an empty group. Scope cuts: no auth (one shared Conversation list), English and USD only, no stop button or rename, and titles are the first ~40 characters.
 
 With another week, in this order:
+
 1. Run each eval case N times and report a pass rate, and add cases for 0 results, Show more and prompt injection in Product text.
 2. Tune the 0.35 threshold on a labelled set (recall@k) and check relevance on every case.
 3. Fix the small ones: empty off-catalog groups, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
