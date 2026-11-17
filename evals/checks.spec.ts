@@ -293,4 +293,12 @@ describe('checkReply — Recommended Groups (ADR 0004)', () => {
     expect(rule(without, false)).toBe(true);
     expect(rule(withSimilar, false)).toBe(false);
   });
+  it('"relevant" needs match cards, all from the allowed categories — recommendations are not judged (Q1)', () => {
+    const rule = (r: Message) =>
+      byRule(checkReply({ expect: { matchCategories: ['smartphones'] }, reply: r, catalog }), 'relevant');
+    expect(rule(reply({ productGroups: [group([2, 3]), similar([4])] }))?.pass).toBe(true);
+    const off = rule(reply({ productGroups: [group([2, 4])] }));
+    expect(off).toEqual({ rule: 'relevant', pass: false, detail: 'off-topic: #4 Red Lipstick (beauty)' });
+    expect(rule(reply({ productGroups: [similar([2])] }))?.pass).toBe(false);
+  });
 });

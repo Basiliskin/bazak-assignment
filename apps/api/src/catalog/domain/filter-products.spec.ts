@@ -112,6 +112,40 @@ describe('filterProducts', () => {
     expect(ids(filterProducts(all, q({ sortBy })))).toEqual(expected);
   });
 
+  describe('similarity order (Q1, D54)', () => {
+    const all = [
+      product({ id: 1, title: 'Smart Speaker', rating: 5 }),
+      product({ id: 2, title: 'Sunglasses', rating: 3 }),
+      product({ id: 3, title: 'Summer Dress', rating: 4 }),
+      product({ id: 4, title: 'Laptop', rating: 2 }),
+    ];
+    const order = [3, 2] as const; // most similar first; 1 and 4 were not ranked
+
+    it('orders keyword-less relevance matches by similarity, unranked ones last by rating', () => {
+      expect(ids(filterProducts(all, q(), order))).toEqual([3, 2, 1, 4]);
+    });
+
+    it('keeps the order across pages, so "Show more" neither repeats nor skips', () => {
+      const many = Array.from({ length: 6 }, (_, i) => product({ id: i + 1, rating: i }));
+      const similar = [5, 3, 1, 6, 2, 4];
+      const pages = [0, 4].flatMap((offset) => ids(filterProducts(many, q({ offset }), similar)));
+      expect(pages).toEqual(similar);
+    });
+
+    it('is ignored when there are keywords or another sort', () => {
+      const phones = [
+        product({ id: 1, title: 'Phone', rating: 1 }),
+        product({ id: 2, title: 'Phone', rating: 5 }),
+      ];
+      expect(ids(filterProducts(phones, q({ keywords: ['phone'] }), [1, 2]))).toEqual([2, 1]);
+      expect(ids(filterProducts(all, q({ sortBy: 'rating-desc' }), order))).toEqual([1, 3, 2, 4]);
+    });
+
+    it('falls back to rating without an order', () => {
+      expect(ids(filterProducts(all, q(), null))).toEqual([1, 3, 2, 4]);
+    });
+  });
+
   it('returns total 0 (not an error) when nothing matches (R8)', () => {
     expect(filterProducts([product({ id: 1 })], q({ keywords: ['flight'] }))).toEqual({
       products: [],

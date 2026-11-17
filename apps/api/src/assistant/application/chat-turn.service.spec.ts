@@ -53,6 +53,7 @@ const CATALOG = [
 /** Recommends Red Lipstick for anything — enough to see where Recommended Groups go. */
 const alwaysLipstick = {
   recommend: async () => [toProductCard(CATALOG[1]!)],
+  similarityOrder: async () => null,
 } as unknown as RecommendationService;
 
 const setup = (

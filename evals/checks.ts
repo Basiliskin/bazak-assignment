@@ -14,6 +14,8 @@ export interface Expectations {
   cheaperThanPrevious?: boolean;
   /** ADR 0004: true = at least one "You might also like" card; false = no Recommended Group at all. */
   recommended?: boolean;
+  /** Q1: every match card belongs to one of these categories (and at least one is shown). */
+  matchCategories?: readonly CategorySlug[];
 }
 
 export interface CheckResult {
@@ -156,6 +158,16 @@ function checkRecommendedPresence(reply: Message, wanted: boolean): CheckResult 
     : result('similar', true, 'no Recommended Group');
 }
 
+/** Q1: a broad search's match group must be on topic, not the whole Catalog by rating. */
+function checkMatchCategories(reply: Message, allowed: readonly CategorySlug[]): CheckResult {
+  const cards = matchCardsOf(reply);
+  if (!cards.length) return result('relevant', false, 'no match cards');
+  const off = cards.filter((c) => !allowed.includes(c.category));
+  return off.length
+    ? result('relevant', false, `off-topic: ${list(off.map((c) => `#${c.id} ${c.title} (${c.category})`))}`)
+    : result('relevant', true, `${cards.length} match cards on topic: ${list(cards.map((c) => c.title))}`);
+}
+
 /** Pure: checks one Assistant reply against the rules. R1, R7, R9, R10 and a non-empty reply are checked on every case. */
 export function checkReply({ expect, reply, previous, catalog }: CheckInput): CheckResult[] {
   const byId = new Map(catalog.map((p) => [p.id, p]));
@@ -173,5 +185,6 @@ export function checkReply({ expect, reply, previous, catalog }: CheckInput): Ch
   if (expect.assumption) results.push(checkAssumption(reply));
   if (expect.cheaperThanPrevious) results.push(checkCheaper(reply, previous));
   if (expect.recommended !== undefined) results.push(checkRecommendedPresence(reply, expect.recommended));
+  if (expect.matchCategories) results.push(checkMatchCategories(reply, expect.matchCategories));
   return results;
 }

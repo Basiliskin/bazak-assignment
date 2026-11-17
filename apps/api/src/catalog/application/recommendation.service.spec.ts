@@ -117,4 +117,22 @@ describe('RecommendationService (ADR 0004, D44, D47)', () => {
     await service.warmUp();
     expect((await service.recommend(ask)).map((p) => p.id)).toEqual([1, 4, 2]); // towel (beach + sun) outranks the dress (beach only)
   });
+  describe('similarityOrder (Q1, D54)', () => {
+    it('ranks every indexed Product, most similar first — no threshold, no cap', async () => {
+      const { service } = setup();
+      await service.warmUp();
+      expect(await service.similarityOrder('beach sun')).toEqual([1, 2, 3]);
+    });
+
+    it('returns null (rating order applies) while not ready, on a blank query, or on failure', async () => {
+      const failing = fakeEmbedder();
+      const { service, warn } = setup(undefined, failing);
+      expect(await service.similarityOrder('beach')).toBeNull(); // index still building
+      await service.warmUp();
+      expect(await service.similarityOrder('  ')).toBeNull();
+      failing.embed.mockRejectedValueOnce(new Error('boom'));
+      expect(await service.similarityOrder('beach')).toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('boom'));
+    });
+  });
 });

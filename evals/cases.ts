@@ -1,4 +1,20 @@
+import type { CategorySlug } from '@app/contracts';
 import type { Expectations } from './checks.js';
+
+/** Categories a beach trip plausibly draws from (Q1). Drinks/groceries are left out on purpose: too broad. */
+const BEACH_CATEGORIES: readonly CategorySlug[] = [
+  'sunglasses',
+  'tops',
+  'womens-dresses',
+  'mens-shirts',
+  'skin-care',
+  'beauty',
+  'fragrances',
+  'sports-accessories',
+  'womens-bags',
+  'mens-shoes',
+  'womens-shoes',
+];
 
 export interface EvalCase {
   id: string;
@@ -33,5 +49,10 @@ export const EVAL_CASES: readonly EvalCase[] = [
     expect: { intents: ['mens-watches'], cheaperThanPrevious: true },
   },
   // ADR 0004: no keyword says "beach" well — the Recommended Group should carry it.
-  { id: 'beach', turns: ['something for the beach'], expect: { recommended: true } },
+  // Q1: the match group is ordered by similarity too, so it must be beach-related, not Echo/Rolex by rating.
+  {
+    id: 'beach',
+    turns: ['something for the beach'],
+    expect: { recommended: true, matchCategories: BEACH_CATEGORIES },
+  },
 ];

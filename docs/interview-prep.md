@@ -126,3 +126,8 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - What do the tests and eval *not* catch about RAG? → readme-notes /qa S8 (relevance of matches, threshold quality, model download on a clean machine).
 - What happens if the embedding model can't be downloaded on first start? → qa-report Q2, D52.
 - Can a recommendation repeat a product from another intent in the same turn? → qa-report Q3, D53.
+
+## /developer Q1 fix
+- Why order the match page by similarity and not filter it by the 0.35 threshold? → SESSION-LOG D54 (filtering would duplicate the Recommended Group and empty most broad searches).
+- Why does "Show more" still get the similarity order when it gets no Recommended Group? → `catalog.service.ts` `SearchOptions` (`semanticQuery` on every page, `recommend` only on page 1), D31.
+- Why a category allow-list for the beach rule and not an LLM judge? → SESSION-LOG D55 (deterministic, cheap, no flaky reruns).

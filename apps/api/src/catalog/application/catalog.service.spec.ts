@@ -46,16 +46,24 @@ describe('CatalogService', () => {
       product({ id: 2, title: 'Beach Dress', price: 40, category: 'tops' }),
       product({ id: 3, title: 'Beach Hat', price: 30, category: 'tops' }),
     ];
-    const recommendations = (impl = async () => [] as ProductCard[]) => {
+    const recommendations = (impl = async () => [] as ProductCard[], order: number[] | null = null) => {
       const recommend = vi.fn(impl);
-      return { service: { recommend } as unknown as RecommendationService, recommend };
+      const similarityOrder = vi.fn(async () => order);
+      return {
+        service: { recommend, similarityOrder } as unknown as RecommendationService,
+        recommend,
+        similarityOrder,
+      };
     };
 
     it('asks for recommendations excluding the shown page only (D50), with the same price range', async () => {
       const r = recommendations();
       const many = Array.from({ length: 6 }, (_, i) => product({ id: i + 10, price: 30, category: 'tops' }));
       const service = new CatalogService(port(many), r.service);
-      await service.search({ ...query, category: 'tops', maxPrice: 50 }, { recommend: 'beach outfit' });
+      await service.search(
+        { ...query, category: 'tops', maxPrice: 50 },
+        { semanticQuery: 'beach outfit', recommend: true },
+      );
       expect(r.recommend).toHaveBeenCalledWith({
         semanticQuery: 'beach outfit',
         minPrice: null,
@@ -67,7 +75,10 @@ describe('CatalogService', () => {
     it('returns them next to the matches', async () => {
       const card = { id: 1, title: 'Beach Sunglasses' } as ProductCard;
       const service = new CatalogService(port(products), recommendations(async () => [card]).service);
-      const r = await service.search({ ...query, category: 'tops' }, { recommend: 'beach' });
+      const r = await service.search(
+        { ...query, category: 'tops' },
+        { semanticQuery: 'beach', recommend: true },
+      );
       expect(r.products.map((p) => p.id)).toEqual([2, 3]);
       expect(r.recommended).toEqual([card]);
     });
@@ -77,6 +88,28 @@ describe('CatalogService', () => {
       const result = await new CatalogService(port(products), r.service).search(query);
       expect(r.recommend).not.toHaveBeenCalled();
       expect(result.recommended).toEqual([]);
+    });
+    it('orders keyword-less relevance matches by similarity to semanticQuery (Q1), on every page', async () => {
+      const r = recommendations(undefined, [3, 1, 2]);
+      const service = new CatalogService(port(products), r.service);
+      const page1 = await service.search(
+        { ...query, maxPrice: null },
+        { semanticQuery: 'beach', recommend: true },
+      );
+      expect(page1.products.map((p) => p.id)).toEqual([3, 1, 2]);
+      expect(r.recommend).toHaveBeenCalledWith(expect.objectContaining({ excludeIds: [3, 1, 2] })); // D50 kept
+      await service.search({ ...query, maxPrice: null, offset: 4 }, { semanticQuery: 'beach' }); // "Show more"
+      expect(r.similarityOrder).toHaveBeenCalledTimes(2);
+      expect(r.recommend).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not ask for an order when keywords rank the matches', async () => {
+      const r = recommendations(undefined, [3, 1, 2]);
+      await new CatalogService(port(products), r.service).search(
+        { ...query, keywords: ['beach'] },
+        { semanticQuery: 'beach' },
+      );
+      expect(r.similarityOrder).not.toHaveBeenCalled();
     });
   });
 });

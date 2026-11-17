@@ -85,7 +85,7 @@ Clean: ports are framework-free abstract classes in `catalog/application/`; `ran
 
 | # | Sev | Where | Finding |
 |---|---|---|---|
-| Q1 | med | `catalog/domain/filter-products.ts` (sort `relevance`) + `catalog.service.ts:30` | A broad search (no category, no keywords, no price) returns the whole Catalog as the **match** group, ordered by rating (no keyword scores, `filter-products.ts:49`): "Beach essentials 1–4 of 190" = Echo, Matebook, Rolex, Water, while the reply says "no exact match". The good results sit below in "You might also like". Seen in the browser and in eval `beach`/`ambiguous` ("4 of 190"); the eval passes because no rule checks match relevance. **D51 a → `/developer`** (order relevance-sorted, keyword-less matches by similarity to `semanticQuery`). |
+| Q1 | med | `catalog/domain/filter-products.ts` (sort `relevance`) + `catalog.service.ts:30` | A broad search (no category, no keywords, no price) returns the whole Catalog as the **match** group, ordered by rating (no keyword scores, `filter-products.ts:49`): "Beach essentials 1–4 of 190" = Echo, Matebook, Rolex, Water, while the reply says "no exact match". The good results sit below in "You might also like". Seen in the browser and in eval `beach`/`ambiguous` ("4 of 190"); the eval passes because no rule checks match relevance. **D51 a → `/developer`** (order relevance-sorted, keyword-less matches by similarity to `semanticQuery`). ✅ fixed (D54 a, D55 a): `filterProducts` takes a similarity order from `RecommendationService.similarityOrder` (same `nearest` port, no threshold, no cap) on every page; rating is the fallback; eval rule `relevant` checks beach match cards are in beach categories (live 7/7). |
 | Q2 | low | `recommendation.service.ts:70-80` + `local-embedding.ts:26-29` | After a failed model load (e.g. offline first start), every search starts a new background load of the whole Catalog and logs a warning. No latency (background), but log noise and repeated download attempts. **D52 a → README** |
 | Q3 | low | `chat-turn.service.ts:39` / `catalog.service.ts:37` | Exclusion is per Search Intent: in a multi-intent turn a Recommended Group may repeat a Product shown in another intent's match group. R10 only forbids the same intent, so it is allowed, but it looks like a duplicate. **D53 a → README** |
 | Q4 | low | `recommendation.service.ts:75` | `vectors[i] ?? []` silently indexes a Product with no vector if the embedder returns fewer vectors; it then never scores (cosine 0). Harmless. **D53 a → ignore** |
@@ -112,19 +112,19 @@ Clean: no framework imports in `domain/` or `application/`; thin controllers; no
 <!-- eval:start -->
 ## Live eval
 
-`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 17:35 · **7/7 cases passed**
+`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 17:45 · **7/7 cases passed**
 
-Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · reply has text.
+Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · relevant = match cards on topic (beach) · reply has text.
 
 | Case | Request | Groups | Checks | Time |
 |---|---|---|---|---|
-| plain | show me smartphones | Smartphones (4 of 15); You might also like · Smartphones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 4.3 s |
-| price | a phone under $500 | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.6 s |
-| ambiguous | something cheap and cool | Affordable cool picks (4 of 190); You might also like · Affordable cool picks (1 of 1) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 5.8 s |
-| off-catalog | a flight to Tokyo | — | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 3.5 s |
-| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3); Lipsticks (1 of 1); You might also like · Lipsticks (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 5.0 s |
-| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men’s watches — cheaper than $8,999.98 (2 of 2); You might also like · Men’s watches — cheaper than $8,999.98 (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 9.1 s |
-| beach | something for the beach | Beach essentials (4 of 190); You might also like · Beach essentials (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ similar | 5.6 s |
+| plain | show me smartphones | Smartphones (4 of 15); You might also like · Smartphones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 5.0 s |
+| price | a phone under $500 | Phones under $500 (4 of 12) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.3 s |
+| ambiguous | something cheap and cool | Affordable cool finds (4 of 190); You might also like · Affordable cool finds (2 of 2) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 6.0 s |
+| off-catalog | a flight to Tokyo | — | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 4.3 s |
+| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); You might also like · Phones under $500 (4 of 4); Lipsticks (1 of 1); You might also like · Lipsticks (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.1 s |
+| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men’s watches — most expensive first (2 of 2); You might also like · Men’s watches — most expensive first (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 10.7 s |
+| beach | something for the beach | Beach essentials (4 of 190); You might also like · Beach essentials (1 of 1) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ similar · ✅ relevant | 4.9 s |
 
 No failures.
 <!-- eval:end -->

@@ -522,3 +522,21 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D51 (a), D52 (a), D53 (a).
 **Artifacts:** `docs/qa-report.md` (S8 re-verify section, S8 audit Q1–Q4, eval table), `docs/interview-prep.md`, `docs/readme-notes.md`.
 **Next step:** `/developer fix Q1 from docs/qa-report.md — order relevance-sorted matches with no keywords by similarity to semanticQuery (D51 a)`
+
+## 2026-11-17 17:50 : /developer — fix Q1 (broad search ordered by rating)
+
+**User input:**
+> /developer fix Q1 from docs/qa-report.md — order relevance-sorted matches with no keywords by similarity to semanticQuery (D51 a), keep the shown-page exclusion for the Recommended Group, add an eval rule that beach matches are beach-related
+> question - can we use LLM for confidensial score ?
+> I prefer simple and reliable solution
+
+**Options offered:**
+- D54 Similarity order: (a) reuse `VectorIndexPort.nearest` with no threshold/cap, `filterProducts(…, order)` (rec.) / (b) new port method `scores(vector, ids)` / (c) also filter matches by threshold.
+- D55 Beach eval rule: (a) category allow-list `matchCategories` → rule `relevant` (rec.) / (b) title/description words / (c) LLM judge.
+- Side answer: LLM confidence score — possible as an eval judge (non-deterministic, extra calls) or runtime rerank (latency, cost, hallucination risk); not taken.
+**Decision:** D54 (a), D55 (a) ("simple and reliable").
+**Found:** "Show more" pages pass no `recommend` (offset > 0), so ordering is driven by a separate `semanticQuery` option on every page; otherwise page 2 would fall back to rating and repeat/skip Products.
+**Built:** `filterProducts(products, query, similarityOrder?)`; `RecommendationService.similarityOrder`; `CatalogService.search(query, { semanticQuery, recommend })`; eval `matchCategories` + `relevant` rule on beach.
+**Verified:** typecheck, lint clean; tests api 152 · web 68 · evals 28; live eval 7/7 incl. `relevant` on beach (beach recommendations 4 → 1, expected under D50).
+**Artifacts:** catalog domain/application + specs, chat-turn service, evals, `docs/qa-report.md` (Q1 fixed, eval table), interview-prep, readme-notes.
+**Next step:** `/readme` (refresh the retrieval section with the Q1 fix)

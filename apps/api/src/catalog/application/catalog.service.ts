@@ -15,8 +15,10 @@ export interface CatalogSearchResult {
 }
 
 export interface SearchOptions {
-  /** Similarity text to recommend from (the model's `semanticQuery`); null/absent = no recommendations. */
-  recommend?: string | null;
+  /** The model's `semanticQuery`: orders keyword-less relevance matches (Q1) and seeds recommendations. */
+  semanticQuery?: string;
+  /** Build a Recommended Group (first page only; "Show more" pages don't get one). */
+  recommend?: boolean;
 }
 
 /** Use cases over the Catalog. Only I/O here; the logic is in domain/ pure functions. */
@@ -26,18 +28,31 @@ export class CatalogService {
     private readonly recommendations: RecommendationService | null = null,
   ) {}
 
-  async search(query: CatalogQuery, options: SearchOptions = {}): Promise<CatalogSearchResult> {
-    const { products, total } = filterProducts(await this.catalog.getAll(), query);
+  async search(
+    query: CatalogQuery,
+    { semanticQuery = '', recommend = false }: SearchOptions = {},
+  ): Promise<CatalogSearchResult> {
+    const { products, total } = filterProducts(
+      await this.catalog.getAll(),
+      query,
+      await this.similarityOrder(query, semanticQuery),
+    );
     const recommended =
-      options.recommend && this.recommendations
+      recommend && semanticQuery.trim() && this.recommendations
         ? await this.recommendations.recommend({
-            semanticQuery: options.recommend,
+            semanticQuery,
             minPrice: query.minPrice,
             maxPrice: query.maxPrice,
             excludeIds: products.map((p) => p.id), // the shown page only (D50)
           })
         : [];
     return { products: products.map(toProductCard), total, recommended };
+  }
+
+  /** Only when keywords can't rank the matches (Q1, D54); null = rating order. */
+  private async similarityOrder(query: CatalogQuery, semanticQuery: string): Promise<number[] | null> {
+    const needsOrder = query.sortBy === 'relevance' && !query.keywords.some((k) => k.trim());
+    return needsOrder && this.recommendations ? this.recommendations.similarityOrder(semanticQuery) : null;
   }
 
   async topRated(limit: number): Promise<ProductCard[]> {

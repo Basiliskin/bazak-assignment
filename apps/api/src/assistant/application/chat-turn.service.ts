@@ -35,8 +35,10 @@ function createTurnTools(catalog: CatalogService, earlier: readonly Message[]) {
     async searchProducts(query) {
       const slot = slots.push([]) - 1;
       const resolved = resolvePagedQuery(query, earlier);
-      const recommend = shouldRecommend(resolved) ? resolved.semanticQuery : null;
-      const result = await catalog.search(resolved, { recommend });
+      const result = await catalog.search(resolved, {
+        semanticQuery: resolved.semanticQuery,
+        recommend: shouldRecommend(resolved),
+      });
       const output = {
         match: toProductGroup(resolved, result),
         recommended: toRecommendedGroup(resolved, result.recommended),

@@ -101,3 +101,8 @@
 - Verified live: beach → sunglasses/summer dress as "You might also like"; "cellphone" → no keyword match, iPhones recommended; flight → no recommendations (threshold works).
 - What the tests would *not* catch: whether matches are relevant (eval checks ids, prices, stock and group counts, not meaning — Q1 passed 7/7 while showing an Echo under "Beach essentials"); whether 0.35 is a good threshold beyond 7 cases; the real model download (tests use a fake embedder).
 - With more time: back off after a failed model load instead of retrying on every search (Q2); exclude Products shown anywhere in the turn from recommendations, not just the same intent (Q3).
+
+## /developer Q1 fix
+- A relevance search with no keywords is ordered by similarity to `semanticQuery` (all indexed Products, no threshold); rating order is the fallback while the model loads or fails. Searches with keywords keep keyword scoring first.
+- Trade-off: the most similar Products now fill the match page, so the Recommended Group (shown page excluded, D50) is often short — beach went from 4 to 1 recommendation — and may repeat what "Show more" would show.
+- Eval: new `relevant` rule (category allow-list) for the beach case; an LLM judge was considered and rejected as non-deterministic.

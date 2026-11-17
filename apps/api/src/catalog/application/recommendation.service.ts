@@ -66,6 +66,31 @@ export class RecommendationService {
     }
   }
 
+  /**
+   * Every indexed Product id, most similar to `semanticQuery` first — no threshold, no cap — so the match
+   * group of a keyword-less search can be ordered by it (Q1, D54). null = not ready, blank query or failure.
+   */
+  async similarityOrder(semanticQuery: string): Promise<number[] | null> {
+    try {
+      this.rebuildIfChanged(await this.catalog.getAll());
+      if (!this.ready || !this.indexedFor || !semanticQuery.trim()) return null;
+      const [vector] = await this.embedder.embed([semanticQuery]);
+      if (!vector) return null;
+      const ranked = await this.index.nearest({
+        vector,
+        minPrice: null,
+        maxPrice: null,
+        excludeIds: [],
+        minScore: -Infinity,
+        k: this.indexedFor.length,
+      });
+      return ranked.map((p) => p.id);
+    } catch (e) {
+      this.warn(`Similarity order skipped: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   /** Starts one background re-embed when the Catalog copy changed; concurrent callers share it. */
   private rebuildIfChanged(products: readonly Product[]): void {
     if (products === this.indexedFor || this.building) return;

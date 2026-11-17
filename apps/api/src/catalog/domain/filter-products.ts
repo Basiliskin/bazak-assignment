@@ -45,20 +45,39 @@ export function scoreProduct(p: Product, keywords: readonly string[]): number {
 type Scored = { product: Product; score: number };
 
 const byIdAsc = (a: Scored, b: Scored) => a.product.id - b.product.id;
+const byRelevance = (a: Scored, b: Scored) =>
+  b.score - a.score || b.product.rating - a.product.rating || byIdAsc(a, b);
 const COMPARATORS: Record<CatalogQuery['sortBy'], (a: Scored, b: Scored) => number> = {
-  relevance: (a, b) => b.score - a.score || b.product.rating - a.product.rating || byIdAsc(a, b),
+  relevance: byRelevance,
   'price-asc': (a, b) => a.product.price - b.product.price || byIdAsc(a, b),
   'price-desc': (a, b) => b.product.price - a.product.price || byIdAsc(a, b),
   'rating-desc': (a, b) => b.product.rating - a.product.rating || byIdAsc(a, b),
   'discount-desc': (a, b) => b.product.discountPercentage - a.product.discountPercentage || byIdAsc(a, b),
 };
 
+/** Most similar first (Q1, D54); Products missing from `order` go last, by rating. */
+const bySimilarity = (order: readonly number[]) => {
+  const rank = new Map(order.map((id, i) => [id, i]));
+  const rankOf = (s: Scored) => rank.get(s.product.id) ?? Infinity;
+  return (a: Scored, b: Scored) => rankOf(a) - rankOf(b) || byRelevance(a, b);
+};
+
 /**
  * Pure: the in-memory Catalog search behind `search_products` (ADR 0002).
  * in stock (R9) → category → any keyword (D20) → price range, inclusive (R6) → sort → one page (R7).
+ * `similarityOrder` (Product ids, most similar to `semanticQuery` first) ranks a relevance search that has
+ * no keywords to score it (Q1) — otherwise a broad search would show the whole Catalog by rating.
  */
-export function filterProducts(products: readonly Product[], query: CatalogQuery): SearchResult {
+export function filterProducts(
+  products: readonly Product[],
+  query: CatalogQuery,
+  similarityOrder: readonly number[] | null = null,
+): SearchResult {
   const keywords = query.keywords.map(normalizeKeyword).filter(Boolean);
+  const compare =
+    similarityOrder && query.sortBy === 'relevance' && keywords.length === 0
+      ? bySimilarity(similarityOrder)
+      : COMPARATORS[query.sortBy];
   const matches = products
     .filter((p) => p.stock > 0)
     .filter((p) => query.category === null || p.category === query.category)
@@ -66,7 +85,7 @@ export function filterProducts(products: readonly Product[], query: CatalogQuery
     .filter((p) => query.maxPrice === null || p.price <= query.maxPrice)
     .map((product) => ({ product, score: scoreProduct(product, keywords) }))
     .filter((s) => keywords.length === 0 || s.score > 0)
-    .sort(COMPARATORS[query.sortBy]);
+    .sort(compare);
   return {
     products: matches.slice(query.offset, query.offset + PAGE_SIZE).map((s) => s.product),
     total: matches.length,
