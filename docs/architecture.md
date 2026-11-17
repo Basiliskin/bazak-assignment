@@ -22,6 +22,8 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D23 | Message schema | zod `MessageSchema`/`ProductGroupSchema`/`ProductCardSchema`/`ConversationSchema` in `packages/contracts`; types derived from them |
 | D24 | LLM boundary | `LlmPort.streamTurn({system, history, tools, onFinish})` → `{headers, body: ReadableStream}`; application supplies tool handlers; AI SDK only in `ai-sdk.llm.ts`; last step forced to text (`toolChoice: 'none'`) |
 | D25 | History to LLM | Last 20 Messages as text; Products each reply showed go as a following **system note** (`allowSystemInMessages`), never inside assistant text |
+| D26 | UI message shape | Stored `Message` → `UIMessage` (`toUIMessages`) seeds `useChat`; all rendering via pure `toChatItems` view model — SDK types stay in `chat/` |
+| D27 | New chat URL | `/chat` replace-redirects to `/chat/<uuid>` with state `{fresh}`; 404 + fresh = empty chat, 404 otherwise = not found |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -75,7 +77,7 @@ apps/
     api/               client.ts (fetch wrapper), queries.ts (TanStack Query hooks)
     shells/            WidgetShell.tsx, PageShell.tsx, ShopPage.tsx (containers)
     chat/              ChatView.tsx (container), useShoppingChat.ts (useChat wiring),
-                       to-product-groups.ts (UI message parts → ProductGroup[])    ← pure
+                       to-ui-messages.ts, to-chat-items.ts (UI parts → view model incl. ProductGroup[]) ← pure
     conversations/     ConversationSidebar.tsx (container), ConversationList.tsx
     components/        MessageBubble, ProductGroup, ProductCard, ProductDetailsDialog
     lib/               format.ts (price, truncate)                                  ← pure
@@ -189,7 +191,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`; `DomainExceptionFilter`. ✅ done | AC3.2 (filter), AC3.7, AC3.8 |
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. ✅ done | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModelV4`. ✅ done | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
-| **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
+| **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. ✅ done (D26 stored→UI messages→`toChatItems` view model; D27 `/chat` → `/chat/<uuid>`) | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
 | **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. | AC4.x, R2–R4 display |
 | **S6** Eval suite | `evals/cases.ts` (6 cases + out-of-stock), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. | AC7.2–7.3 |
 | **S7** Widget + shop page (D) | `GET /api/products?limit=10`, `ShopPage`, `WidgetShell` (FAB, window, in-window list, ⤢, localStorage pointer), carousel layout, full screen on phones. Cut first if time is short. | US6b |

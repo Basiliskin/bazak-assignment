@@ -50,3 +50,9 @@
 - Live findings worth telling: the model initially searched for "flight" three times and replied with nothing → forced final text step + prompt rule; it copied history annotations into replies → moved them to system notes.
 - History: last 20 Messages; Products each reply showed are passed as system notes (id, title, price) so follow-ups work.
 - Latency ≈ 5–6 s per turn with tools (gpt-6-luna via Responses API).
+
+## /developer S4
+- Full page at `/chat` (redirects to `/chat/<new id>`) and `/chat/:id`: sidebar with Conversations (newest first, delete on hover), New chat, streaming replies with "Searching: …" status, typing dots, caret, disabled input, error + Retry.
+- The browser holds no history of its own: `useChat` is seeded from `GET /api/conversations/:id`, and each request sends only the new Message.
+- Trade-off: switching Conversations shows a short "Loading conversation…" because history is always fetched fresh rather than served from cache.
+- With more time: code-split the web bundle (>500 kB with zod + AI SDK), confirm before delete with undo, stop-generation button.

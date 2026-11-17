@@ -64,3 +64,10 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How does "show me cheaper ones" work without replaying tool calls? → D25 system notes with id/title/price; why not inside assistant text (model copied them — seen live)
 - What happens on LLM failure mid-reply / DB write failure / client disconnect? → `error` part (AC2.3) / "could not be saved" part (AC5.4) / controller keeps draining so the reply is still saved
 - How are parallel tool calls kept in order in the saved Message? → slot reserved at call time in `createTurnTools`
+
+## /developer S4
+- Why seed `useChat` with stored Messages instead of rendering two lists? → D26; `apps/web/src/chat/to-ui-messages.ts` + `to-chat-items.ts`, round-trip spec in `chat-mapping.spec.ts`
+- Can a stream chunk put a fake Product on screen? → `toChatItems` validates every `search_products` output with `ProductGroupSchema`; text never becomes a card (R1)
+- How does "New chat" get its id, and what does refreshing an unsent chat show? → D27; `NewChatRedirect` in `shells/PageShell.tsx`; 404 + `fresh` state = empty chat, 404 otherwise = "not found"
+- Why does `ChatView` wait for `isFetchedAfterMount` instead of using the cached history? → `useChat` reads initial messages once; a stale cache would hide the last turn after switching back
+- What does Retry send, and why can't it duplicate a Message? → `regenerate()` → `toChatRequest` resends the same user Message id; server `appendMessage` ignores known ids

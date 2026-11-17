@@ -306,3 +306,22 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Live check 2:** all 5 correct — ≤$500 respected; "cheaper" follow-up used history; ambiguous → `guessed` + assumption + one question; flight → `report_off_catalog` + clear refusal; multi-intent → 2 groups; 10 Messages persisted. 4.7–6.3 s per turn. Prompt tightened: cheaper = cheapest shown − 0.01 (model used "≤ cheapest").
 **Verified:** lint clean, typecheck ok, tests api 97/97, web 2/2.
 **Next step:** `/developer S4 Full-page chat (A) from docs/architecture.md`
+
+## 2026-11-17 17:10 : /developer S4 — Full-page chat (A)
+
+**User input:**
+> /developer S4 Full-page chat (A) from docs/architecture.md
+> agree to recomendations
+
+**Found before proposing:** `@ai-sdk/react@4.0.177` pairs with `ai@7.0.173`, peer React ^19.2; `regenerate()` resends the last user Message — the server's `appendMessage` is idempotent by id, so Retry is safe.
+
+**Options offered:**
+- D26 UI message shape: (a) seed `useChat` with stored Messages via pure `toUIMessages`, render everything through pure `toChatItems` → one view model (rec.) / (b) two lists — stored from Query + live from `useChat` / (c) own SSE reader without `useChat` (contradicts ADR 0001).
+- D27 New chat id/URL: (a) `/chat` → replace-redirect to `/chat/<uuid>` with state `{fresh}`, `ChatView` keyed by id (rec.) / (b) id in state, URL updated after first send / (c) unknown uuid = empty chat, no 404 notice.
+- Defaults stated: `DefaultChatTransport` + `prepareSendMessagesRequest`; Retry = `regenerate()`; invalidate list on finish; minimal group placeholder until S5; 🗑 delete in sidebar; drawer below `lg`; unit tests for mappers + one streaming container test.
+
+**Decision:** D26 (a), D27 (a). Refinement while building: router state survives a refresh, so `ChatView` always fetches; 404 + `fresh` → empty new chat, 404 otherwise → "Conversation not found".
+**Built:** `chat/` (`ShopUIMessage`/`ChatItem` types; pure `toUIMessages`, `toChatItems` — tool outputs zod-validated, `toChatRequest`, `describeChatError`; `useShoppingChat` — `DefaultChatTransport` sending only `{conversationId, message}`, list invalidated on finish; `ChatView` container — waits for `isFetchedAfterMount`, not-found / load-error states) · `api/` (`client.ts` fetch wrapper + `ApiError`, contract-parsed responses; `queries.ts`) · `components/` (`MessageBubble`, `Composer`, `EmptyState`, `chat-parts` — TypingDots, ToolStatus, OffCatalogNotice, ErrorBlock, RichText, `ProductGroupPreview` placeholder for S5) · `conversations/` (`ConversationSidebar`, `ConversationList` with 🗑) · `shells/PageShell.tsx` (drawer below `lg`, `NewChatRedirect`) · `lib/format.ts` (`relativeTime`, `toInlineSegments`).
+**Issues hit:** lint `react-hooks/set-state-in-effect` on closing the drawer → drawer state stores the Conversation id it was opened for; the client stops reading after an `error` part (test adjusted).
+**Verified:** lint clean, typecheck ok, tests api 97/97, web 26/26 (incl. streaming `ChatView` test with a hand-driven SSE body: bubble at once, input disabled, search status, group, text in steps, error + Retry resends same id). `vite build` ok (bundle > 500 kB warning). Live in Chrome (gpt-6-luna): `/chat` → uuid URL; multi-intent → 2 groups + text, sidebar + header title updated; "show me cheaper phones" → "no matches" + broader suggestion; reload → both turns with groups; unknown id → "Conversation not found"; no console errors.
+**Next step:** `/developer S5 Product cards from docs/architecture.md`

@@ -957,3 +957,90 @@
 ### 2026-11-17T12:59:12.151Z : /developer — user
 
 > agree to recomendations
+
+### 2026-11-17T13:07:22.336Z : /developer — assistant
+
+> S3 is done and committed as `0b107f2`. The API now does the complete chat turn: it saves the shopper's message, streams the reply with product search, and saves the reply. Lint is clean, typecheck passes, and tests pass (API 97/97, web 2/2).
+> 
+> **What's built, in `apps/api/src/assistant/`:**
+> - **`domain/` (pure):** `buildSystemPrompt`, `compactHistory`, `toProductGroup` and `toAssistantMessage`.
+> - **`application/`:**
+>   - `LlmPort` (D24) and `ChatTurnService`, which saves the user message first.
+>   - Tool handlers come from this layer and keep the original call order even when two searches run in parallel.
+>   - Time and ids are passed in, so tests are deterministic.
+> - **`infrastructure/ai-sdk.llm.ts`:** the only API file that imports the AI SDK.
+>   - It runs `streamText` with the 2 tools and at most 3 steps, and streams the reply as SSE.
+>   - If the LLM fails, the stream gets an `error` part instead of a dropped connection.
+>   - If saving fails, it gets a "could not be saved" message.
+> - **`POST /api/chat`:**
+>   - The body is checked against the shared schema.
+>   - If the shopper closes the tab, the server keeps reading the reply so it still gets saved.
+> - **Tests:** 9 e2e cases with a scripted fake model. They cover streaming order, prices and stock, two searches in one request, retrying a bad guessed search, LLM failure, catalog outage, save failure, the forced final text step, and the history notes.
+> 
+> **The live check against ***REDACTED*** found two bugs the offline tests couldn't:**
+> 1. **"a flight to Tokyo" got an empty reply.** The model searched three times and had no step left to answer. **Fix:** the last step must be text (`toolChoice: 'none'`), and the prompt says to report off-catalog requests first.
+> 2. **The model copied the history's `[Shown — …]` lines into its visible reply.** **Fix:** those product lists now go as separate system notes (D25, refined). The new e2e test then caught that SDK v7 rejects system messages mid-conversation unless allowed. That would have broken every second turn live; fixed with `allowSystemInMessages`.
+> 
+> **Second live run: all 5 prompts behave correctly.**
+> 
+> | Prompt | Result |
+> |---|---|
+> | a phone under $500 | top result $499.99, nothing above |
+> | show me cheaper ones | uses the earlier results |
+> | something cheap and cool | states an assumption, asks one question |
+> | a flight to Tokyo | clear "we don't sell that" |
+> | a phone under $500 and a lipstick | two groups |
+> 
+> Each turn takes about 5–6 s.
+> 
+> One leftover: "cheaper" set the price limit *equal* to the cheapest phone shown. I made that prompt rule exact (cheapest minus $0.01) but haven't re-run the live check since; the S6 eval will cover it.
+> 
+> ➡️ Next step (web app):
+> ```
+> /developer S4 Full-page chat (A) from docs/architecture.md
+> ```
+
+### 2026-11-17T13:08:12.715Z : /developer — user
+
+> /developer S4 Full-page chat (A) from docs/architecture.md
+
+### 2026-11-17T13:09:13.445Z : /developer — assistant
+
+> Before I write any code I need your call on three choices. A few things I checked: `@ai-sdk/react@4.0.177` works with our `ai@7.0.173` and React 19. The server already creates the Conversation from a client-generated id on the first message. And Retry is safe, because saving a Message with an id that already exists is ignored, so resending the same user Message just runs the turn again.
+> 
+> ❓ **D26 — One message shape on screen, or two?** (`useChat` holds its own message format, while the API returns our stored `Message`)
+> (a) **Seed `useChat` with stored Messages.** A pure `toUIMessages(messages)` turns stored Messages into `useChat` messages (text plus `search_products` / `report_off_catalog` tool outputs). A pure `toChatItems(uiMessages)` turns everything back into one plain view model (`{role, text, productGroups, offCatalog, pendingSearches}`) for presentational components. Live and stored messages go through one path, and SDK types never reach the components. Both functions get round-trip unit tests. **(Recommended)**
+> (b) **Keep two lists.** Stored Messages come from TanStack Query and new ones from a `useChat` that starts empty, rendered one after the other. There's no mapping into SDK format, but the stored ones are invisible to `regenerate`, there are two render paths, and the two lists need de-duplicating after a refetch.
+> (c) **Fetch with my own SSE reader and drop `useChat`.** I'd own all the parsing, which contradicts ADR 0001 and costs more time.
+> ➡️ (a) keeps the rule that live and stored replies render through the same components (DRY) for about 40 lines of tested pure code.
+> 
+> ❓ **D27 — How does "New chat" get its id and URL?**
+> (a) **Redirect immediately.** `/chat` sends you to `/chat/<uuid>` (replacing the history entry) with router state `{ fresh: true }`, so `ChatView` skips the GET. `ChatView` is keyed by id, so switching chats remounts it cleanly. The URL never changes mid-stream. Downside: refreshing a chat you never sent anything in shows "Conversation not found · New chat". **(Recommended)**
+> (b) **Change the URL after the first send.** The id stays in component state and the URL becomes `/chat/:id` after the first message, which needs care so the stream doesn't remount mid-reply.
+> (c) **Treat an unknown uuid as a new empty chat.** There's no 404 notice, so links to deleted Conversations silently show an empty chat. That contradicts the failure-modes table in `docs/architecture.md`.
+> ➡️ (a) is the simplest, keeps the URL stable, and matches the documented 404 behaviour.
+> 
+> **Defaults** (object if you disagree):
+> - **Transport:** `DefaultChatTransport` with `prepareSendMessagesRequest` sends only `{conversationId, message:{id,text}}`.
+> - **Retry:** uses `regenerate()`. The error text comes from the server's `error` part.
+> - **Sidebar refresh:** invalidate the conversation list (`['conversations']`) when a reply finishes.
+> - **Product Groups in S4:** they render as a minimal placeholder (label plus "1–4 of N" plus product titles) so reload and switching are testable now. Cards, carousel, popup and Show more stay in S5.
+> - **Delete (AC6.4, Could):** a small 🗑 on each sidebar item, because the endpoint already exists.
+> - **Layout:** sidebar is persistent at `lg` and above and a drawer below that. Tokens follow `docs/design.md`.
+> - **Tests:** unit tests for both mappers and `relativeTime`. One container test of `ChatView` with a stubbed `fetch` that streams SSE, checking that the user bubble appears immediately, the input is disabled, text streams in, and Retry appears on error.
+> 
+> Pick (a/b/c) for D26 and D27, or mix them.
+
+### 2026-11-17T13:10:14.623Z : /developer — user
+
+> agree to recomendations
+
+### 2026-11-17T13:17:30.769Z : /developer — user
+
+> <task-notification>
+> <task-id>bhqxxuyun</task-id>
+> <tool-use-id>toolu_01Lo3F55VguLBVqo7xAmfCZr</tool-use-id>
+> <output-file>/private/tmp/claude-501/-Users-dimitrykatz-workspace-Projects-bazak-assignment/da2f99ed-ae47-4d3c-84bb-98aa3fd10e01/tasks/bhqxxuyun.output</output-file>
+> <status>failed</status>
+> <summary>Background command "Start dev servers in background" failed with exit code 1</summary>
+> </task-notification>

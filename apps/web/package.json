@@ -11,8 +11,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.177",
     "@app/contracts": "0.0.0",
     "@tanstack/react-query": "^5.107.2",
+    "ai": "^7.0.173",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^8.5.1"
@@ -22,6 +24,7 @@
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
