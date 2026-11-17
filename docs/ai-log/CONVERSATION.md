@@ -2065,3 +2065,109 @@
 ### 2026-11-17T15:30:32.952Z : /developer — user
 
 > agree to recomendations
+
+### 2026-11-17T15:33:30.580Z : /developer — assistant
+
+> S8 is built and committed (`1c0f183`). Every search now shows keyword matches plus a "You might also like" group from the local embedding model. The live eval passes 7/7, after one fix round described below.
+> 
+> **How it behaves**
+> - The model writes a fuller description of what fits for each search. The code embeds it and adds up to 4 similar Products from any category. They respect the same price limit and stock rule, skip the matches already on screen, and must score at least 0.35, otherwise the group is hidden.
+> - There's no extra model call. The recommendations come back in the same tool result as the matches.
+> - Only first pages get recommendations; "Show more" pages don't.
+> - The model loads in the background at startup. Until it's ready, or if it fails to load, searches return matches only and the chat never waits or errors.
+> - In the web, the group shows a ✨ "You might also like" header, with no "1–4 of N" and no Show more.
+> 
+> **What the first live eval caught (5/7 → 7/7)**
+> - **"something for the beach":** the model searched with no category and no keywords, so 190 Products matched. Excluding every match left nothing to recommend. Now only the shown page is excluded (D50); a recommended Product can reappear if the Shopper presses Show more.
+> - **"a flight to Tokyo":** my rule "no recommendations after an off-catalog report" depended on which tool call ran first, so it was unreliable. I dropped it and let the threshold keep junk out (D49). In that run it put a real bag under an otherwise empty "travel bags" group.
+> 
+> **Your saved chats still load.** I checked the real `data/app.db`: all 26 existing Messages load. Old groups count as matches, and the missing description is read as empty (D46).
+> 
+> **Checks:** lint, typecheck and build pass; tests are api 144, web 68, evals 27. Prettier only flags the README draft. The api count went from 146 to 144 because two tests were removed with the old behaviour.
+> 
+> **Still open:**
+> - I haven't looked at the new header in a real browser; the chrome-bridge connection failed this session. Component tests cover it, and `/qa` should do the visual check.
+> - An off-catalog "Instead: …" search can still come back empty with nothing similar either. That's QA finding B1, not fully gone, and it goes into Known limitations.
+> - The install grew by about 470 MB (onnxruntime-node), and the first `npm run dev` downloads the 24 MB model once.
+> - `README.md` is still an uncommitted draft at Section 4.
+> 
+> ➡️ Next step: `/qa`
+> 
+> Prompt to paste:
+> ```
+> /qa re-verify after S8 (RAG): suites, live eval, smoke test "You might also like" in the browser (beach, cellphone, off-catalog, show more), audit the new catalog ports and RecommendationService
+> ```
+> 
+> After that, `/readme` to finish Sections 3–6.
+
+### 2026-11-17T15:33:43.819Z : /qa — user
+
+> /qa re-verify after S8 (RAG): suites, live eval, smoke test "You might also like" in the browser (beach, cellphone, off-catalog, show more), audit the new
+>   catalog ports and RecommendationService
+
+### 2026-11-17T15:34:18.026Z : /qa — user
+
+> <task-notification>
+> <task-id>bowvv240b</task-id>
+> <tool-use-id>toolu_01Bxa5zVdgyxBvarr4pToJof</tool-use-id>
+> <output-file>/private/tmp/claude-501/-Users-dimitrykatz-workspace-Projects-bazak-assignment/da2f99ed-ae47-4d3c-84bb-98aa3fd10e01/tasks/bowvv240b.output</output-file>
+> <status>completed</status>
+> <summary>Background command "Run typecheck, lint, prettier, tests, build" completed (exit code 0)</summary>
+> </task-notification>
+
+### 2026-11-17T15:35:22.486Z : /qa — user
+
+> <task-notification>
+> <task-id>b6hgz331p</task-id>
+> <tool-use-id>toolu_014erMWbZsCuGBXHjdMshe5K</tool-use-id>
+> <output-file>/private/tmp/claude-501/-Users-dimitrykatz-workspace-Projects-bazak-assignment/da2f99ed-ae47-4d3c-84bb-98aa3fd10e01/tasks/b6hgz331p.output</output-file>
+> <status>completed</status>
+> <summary>Background command "Run the live LLM eval suite" completed (exit code 0)</summary>
+> </task-notification>
+
+### 2026-11-17T15:36:36.574Z : /qa — assistant
+
+> S8 passes on every check I ran. I found one visible UX problem and three small ones, and need your call on them before I fix anything.
+> 
+> ## Results (written to `docs/qa-report.md`)
+> | Check | Result |
+> |---|---|
+> | typecheck / lint | ✅ no errors |
+> | Prettier | ✅ code is clean. ⚠ `README.md` fails, but it's the untracked `/readme` draft |
+> | `npm test` | ✅ api 144/144 · web 68/68 · evals 27/27 |
+> | build | ✅ |
+> | `npm run eval` (live) | ✅ 7/7 cases passed, 3.5–9.1 s each |
+> | Secret scan (working tree + full git history) | ✅ no keys found. `.env` and `data/` are ignored, `.env.example` is present |
+> 
+> **Browser smoke test (real model, real DummyJSON):**
+> - **Beach:** "✨ You might also like" shows Sunglasses, Girl Summer Dress, Classic Sun Glasses and Juice.
+> - **Cellphone:** the match group is empty ("no matches"), and the recommendations are iPhones. The reply says there was no exact match and points to the suggestions.
+> - **Off-catalog ("a flight to Tokyo"):** "Not sold here", and no recommendations appear, so the 0.35 threshold kept unrelated products out. The empty "Instead: …" group still shows, which is the known B1 issue.
+> - **Show more:** it adds page 2 of the matches. No new recommendations appear on that page, and the recommendations have no Show more button of their own.
+> - **Reload:** everything comes back from storage. No console errors and no warnings in the API log.
+> 
+> **Code audit:** the ports have no framework imports. The similarity logic is pure functions with unit tests, and a pgvector version could replace the in-memory index without changing the ports. Every recommendation failure just means no "You might also like" group, never an error.
+> 
+> ## Findings to decide
+> ❓ **D51 — Q1 (medium): unfiltered searches show unrelated products as matches.** For "something for the beach" the model sends no category, keywords or price. The match group then shows "Beach essentials 1–4 of 190": Echo, Matebook, Rolex, Water (the whole catalog, sorted by rating). Meanwhile the reply says "no exact match". The good results sit below it. The eval still passes because no rule checks whether the matches are relevant.
+> - (a) **Hand it to `/developer`: when the sort is "relevance" and there are no keywords, order the matches by similarity to `semanticQuery` (Recommended).** Page 1 would then show sunglasses and swimwear. The recommendations still leave out the shown page, so they would be the next-best items.
+> - (b) Defer it to the README as a known limitation.
+> - (c) Prompt-only fix: require a category or keywords on every search. This is flaky, because the model may still send neither.
+> 
+> ➡️ I recommend (a). The beach query is the showcase for this feature, and right now it shows junk above the good results.
+> 
+> ❓ **D52 — Q2 (low): repeated model loads after a failed first load.** If the first load fails (for example, offline on first start), every search starts another background load and logs a warning. It doesn't slow searches down, but it fills the log.
+> - (a) **Defer to the README (Recommended).**
+> - (b) Fix now with a retry back-off, about 15 minutes of work.
+> 
+> ❓ **D53 — Q3 and Q4 (low).**
+> - Q3: in a multi-intent turn, a recommendation can repeat a product shown in the other intent's matches. R10 allows this.
+> - Q4: if the embedder returns too few vectors, the affected products are silently never recommended. It's harmless.
+> - (a) **Q3 → README, Q4 → ignore (Recommended).**
+> - (b) Fix Q3 now by excluding every shown product across the whole turn.
+> 
+> Once you answer, I'll apply the small fixes, log the decisions, add interview-prep and readme-notes entries (including what the eval misses: it never checks whether matches are relevant), and commit.
+
+### 2026-11-17T15:38:04.299Z : /qa — user
+
+> agree to recomendations

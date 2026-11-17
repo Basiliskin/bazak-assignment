@@ -507,3 +507,18 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Built:** contracts `semanticQuery` (strict tool schema, lenient stored schema), `kind`, `SearchProductsOutputSchema`; catalog `rankBySimilarity` + `cosine` + `toEmbeddingText` (pure), `EmbeddingPort`, `VectorIndexPort`, `RecommendationService`, `InMemoryVectorIndex`, `LocalEmbedding` (`@huggingface/transformers@4.3.2`, lazy import, `data/models/`), `MODEL_CACHE_DIR` config, warm-up on bootstrap, `CatalogService.search(query, { recommend })`; assistant `toRecommendedGroup`, `shouldRecommend`, tool output `{match, recommended}`, history note "Also shown below it…", paging ignores recommended groups, prompt rules for `semanticQuery`; web `toChatItems` dual shape, pure `groupHeader`, ✨ "You might also like" header without paging; evals R10 on every case, `similar` expectation, `beach` case, warm-up before cases, R4/R5 on match groups.
 **Verified:** lint, typecheck, Prettier clean (README draft excluded); tests api 144, web 68, evals 27; build ok; real `data/app.db` 26/26 Messages load (D46); live eval 5/7 → fixes D49/D50 → **7/7**. Not done: browser smoke test of the new heading (covered by component tests; chrome-bridge MCP failed to connect this session).
 **Next step:** `/qa re-verify after S8 (RAG): suites, live eval, smoke test "You might also like" in the browser, audit the new catalog ports`
+
+## 2026-11-17 17:38 : /qa — S8 (RAG) re-verify
+
+**User input:**
+> /qa re-verify after S8 (RAG): suites, live eval, smoke test "You might also like" in the browser (beach, cellphone, off-catalog, show more), audit the new catalog ports and RecommendationService
+> agree to recomendations
+
+**Results:** typecheck/lint clean; tests api 144 · web 68 · evals 27; build ok; live eval 7/7; key scan tree + history clean. Chrome smoke test: beach → ✨ recommended sunglasses/summer dress; cellphone → no matches + recommended iPhones; flight → not sold here, no recommendations (empty "Instead" group, B1); Show more pages matches only; reload restores everything; no console errors.
+**Options offered:**
+- D51 Q1 broad search shows the whole Catalog by rating as the match group ("Beach essentials 1–4 of 190": Echo, Matebook, Rolex, Water): (a) /developer orders keyword-less relevance matches by similarity to `semanticQuery` (rec.) / (b) README / (c) prompt requires category or keywords.
+- D52 Q2 failed model load retried on every search: (a) README (rec.) / (b) back-off now.
+- D53 Q3 cross-intent duplicate in multi-intent, Q4 short vector list: (a) Q3 README, Q4 ignore (rec.) / (b) fix Q3 now.
+**Decision:** D51 (a), D52 (a), D53 (a).
+**Artifacts:** `docs/qa-report.md` (S8 re-verify section, S8 audit Q1–Q4, eval table), `docs/interview-prep.md`, `docs/readme-notes.md`.
+**Next step:** `/developer fix Q1 from docs/qa-report.md — order relevance-sorted matches with no keywords by similarity to semanticQuery (D51 a)`

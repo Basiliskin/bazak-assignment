@@ -120,3 +120,9 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How do old saved conversations survive the new `kind`/`semanticQuery` fields? → D46, lenient stored schema.
 - What happens on the first chat right after startup, before the model is loaded? → D44/D47, match only.
 - Why is the recommendation built in code instead of a second tool the model calls? → D42, ADR 0004.
+
+## /qa S8 re-verify
+- "Something for the beach" shows an Echo and a Rolex as matches — why, and why didn't the eval catch it? → qa-report Q1, D51 (no rule checks match relevance).
+- What do the tests and eval *not* catch about RAG? → readme-notes /qa S8 (relevance of matches, threshold quality, model download on a clean machine).
+- What happens if the embedding model can't be downloaded on first start? → qa-report Q2, D52.
+- Can a recommendation repeat a product from another intent in the same turn? → qa-report Q3, D53.

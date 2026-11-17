@@ -96,3 +96,8 @@
 - Found by the live eval (5/7 → 7/7): excluding every match id left nothing to recommend after a broad search (190 matches) → exclude the shown page only; skipping recommendations after `report_off_catalog` depended on tool-call order → allowed, threshold keeps junk out (it put a real bag under an empty "travel bags" group).
 - Still seen: an off-catalog "Instead: …" search can come back empty with nothing similar either (B1 not fully gone).
 - With more time: rank unfiltered matches by similarity instead of rating (D50 c); tune 0.35 on a labelled set (recall@k); hybrid keyword + vector ranking at 100K in Postgres (pg_search + pgvector).
+
+## /qa S8 re-verify
+- Verified live: beach → sunglasses/summer dress as "You might also like"; "cellphone" → no keyword match, iPhones recommended; flight → no recommendations (threshold works).
+- What the tests would *not* catch: whether matches are relevant (eval checks ids, prices, stock and group counts, not meaning — Q1 passed 7/7 while showing an Echo under "Beach essentials"); whether 0.35 is a good threshold beyond 7 cases; the real model download (tests use a fake embedder).
+- With more time: back off after a failed model load instead of retrying on every search (Q2); exclude Products shown anywhere in the turn from recommendations, not just the same intent (Q3).

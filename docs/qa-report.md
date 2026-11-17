@@ -19,7 +19,7 @@
 | AC3.7 / R8 no results | ✅ `filter-products.spec.ts` (total 0) · `ProductGroup` empty state · smoke test ("cheaper ones" → "none cheaper than $19.99") |
 | AC3.8 Catalog down | ✅ `dummyjson.catalog.spec.ts`, `catalog.service.spec.ts`, `products.e2e-spec.ts` 503 · smoke test (API pointed at a dead host → "can't search right now") |
 | AC3.9 / R9 out of stock | ✅ `filter-products.spec.ts` · every eval case |
-| AC3.10 / R10 Recommended Group | ✅ `rank-by-similarity.spec.ts`, `recommendation.service.spec.ts`, `catalog.service.spec.ts`, `chat-turn.service.spec.ts`, `chat.e2e-spec.ts` (fake embedder), `MessageBubble.spec.tsx`, `chat-mapping.spec.ts` · eval `beach` + R10 on every case (S8) |
+| AC3.10 / R10 Recommended Group | ✅ `rank-by-similarity.spec.ts`, `recommendation.service.spec.ts`, `catalog.service.spec.ts`, `chat-turn.service.spec.ts`, `chat.e2e-spec.ts` (fake embedder), `MessageBubble.spec.tsx`, `chat-mapping.spec.ts` · eval `beach` + R10 on every case (S8) · smoke test (S8 re-verify: beach, cellphone, off-catalog, Show more, reload) |
 | AC4.1 card fields, badge | ✅ `MessageBubble.spec.tsx` |
 | AC4.2 label + "N more" | ✅ `MessageBubble.spec.tsx`, `product-view.spec.ts` |
 | AC4.3 details popup | ✅ `ChatView.spec.tsx` (Esc / ✕ / backdrop, focus returns) |
@@ -65,6 +65,31 @@
 | Storage cleared | ✅ see AC5.3 |
 | Console | ✅ no errors |
 
+## S8 re-verify (2026-11-17, after RAG)
+| Check | Result |
+|---|---|
+| `npm run typecheck` / `lint` | ✅ 0 errors / clean |
+| `npx prettier --check .` | ✅ code clean · ⚠ `README.md` (untracked /readme draft) |
+| `npm test` | ✅ api 144/144 (24 files) · web 68/68 · evals 27/27 |
+| `npm run build` | ✅ (Vite chunk-size warning only) |
+| `npm run eval` | ✅ 7/7, 3.5–9.1 s per case (table below) |
+| Smoke: "something for the beach" | ✅ ✨ "You might also like · Similar to Beach essentials": Sunglasses, Girl Summer Dress, Classic Sun Glasses, Juice. ⚠ the match group above it is "1–4 of 190": Amazon Echo Plus, Matebook X Pro, Rolex, Water (Q1) |
+| Smoke: Show more | ✅ match page 5–8 added, no new Recommended Group on the page, the Recommended Group has no Show more |
+| Smoke: "I need a cellphone" | ✅ "Cellphones · no matches" + recommended iPhone 6, iPhone 13 Pro…; reply says no exact match, points to the suggestions |
+| Smoke: "a flight to Tokyo" | ✅ "Not sold here" + no Recommended Group (threshold kept junk out). Empty "Instead: travel accessories" group again (B1) |
+| Smoke: reload | ✅ ✨ heading, both match pages and the Recommended Group come back from SQLite |
+| Console / API log | ✅ no errors, no recommendation warnings |
+
+### S8 audit (catalog ports, `RecommendationService`)
+Clean: ports are framework-free abstract classes in `catalog/application/`; `rankBySimilarity`, `cosine`, `toEmbeddingText` are pure and unit-tested; the filters + `k` travel in `SimilarityQuery`, so a pgvector adapter fits `VectorIndexPort` unchanged; `@huggingface/transformers` is imported lazily, only in `infrastructure/local-embedding.ts`; every recommendation failure becomes "no Recommended Group" plus a warning (8 specs in `recommendation.service.spec.ts`); recommended titles are JSON-quoted in history notes (`compact-history.ts:34`); `semanticQuery` is never put into a prompt.
+
+| # | Sev | Where | Finding |
+|---|---|---|---|
+| Q1 | med | `catalog/domain/filter-products.ts` (sort `relevance`) + `catalog.service.ts:30` | A broad search (no category, no keywords, no price) returns the whole Catalog as the **match** group, ordered by rating (no keyword scores, `filter-products.ts:49`): "Beach essentials 1–4 of 190" = Echo, Matebook, Rolex, Water, while the reply says "no exact match". The good results sit below in "You might also like". Seen in the browser and in eval `beach`/`ambiguous` ("4 of 190"); the eval passes because no rule checks match relevance. **D51 a → `/developer`** (order relevance-sorted, keyword-less matches by similarity to `semanticQuery`). |
+| Q2 | low | `recommendation.service.ts:70-80` + `local-embedding.ts:26-29` | After a failed model load (e.g. offline first start), every search starts a new background load of the whole Catalog and logs a warning. No latency (background), but log noise and repeated download attempts. **D52 a → README** |
+| Q3 | low | `chat-turn.service.ts:39` / `catalog.service.ts:37` | Exclusion is per Search Intent: in a multi-intent turn a Recommended Group may repeat a Product shown in another intent's match group. R10 only forbids the same intent, so it is allowed, but it looks like a duplicate. **D53 a → README** |
+| Q4 | low | `recommendation.service.ts:75` | `vectors[i] ?? []` silently indexes a Product with no vector if the embedder returns fewer vectors; it then never scores (cosine 0). Harmless. **D53 a → ignore** |
+
 ## Audit (SOLID / KISS / DRY / DDD)
 Clean: no framework imports in `domain/` or `application/`; thin controllers; no retrieval or prompt logic in web; all types come from `@app/contracts`; domain functions are pure (time and ids injected); every stream failure becomes an SSE error part (LLM error, catalog error, save error, client disconnect drains and saves).
 
@@ -87,19 +112,19 @@ Clean: no framework imports in `domain/` or `application/`; thin controllers; no
 <!-- eval:start -->
 ## Live eval
 
-`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 17:32 · **7/7 cases passed**
+`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 17:35 · **7/7 cases passed**
 
 Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · reply has text.
 
 | Case | Request | Groups | Checks | Time |
 |---|---|---|---|---|
-| plain | show me smartphones | Smartphones (4 of 15); You might also like · Smartphones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 3.8 s |
-| price | a phone under $500 | Phones under $500 (4 of 12) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.0 s |
-| ambiguous | something cheap and cool | Cheap, cool finds (4 of 116); You might also like · Cheap, cool finds (2 of 2) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 8.7 s |
-| off-catalog | a flight to Tokyo | Instead: Tokyo travel essentials (0 of 0) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 6.1 s |
-| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3); Lipsticks (1 of 1); You might also like · Lipsticks (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.3 s |
-| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men’s watches — cheaper ones (2 of 2); You might also like · Men’s watches — cheaper ones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 7.6 s |
-| beach | something for the beach | Beach essentials (4 of 190); You might also like · Beach essentials (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ similar | 4.3 s |
+| plain | show me smartphones | Smartphones (4 of 15); You might also like · Smartphones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 4.3 s |
+| price | a phone under $500 | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.6 s |
+| ambiguous | something cheap and cool | Affordable cool picks (4 of 190); You might also like · Affordable cool picks (1 of 1) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 5.8 s |
+| off-catalog | a flight to Tokyo | — | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 3.5 s |
+| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3); Lipsticks (1 of 1); You might also like · Lipsticks (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 5.0 s |
+| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men’s watches — cheaper than $8,999.98 (2 of 2); You might also like · Men’s watches — cheaper than $8,999.98 (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 9.1 s |
+| beach | something for the beach | Beach essentials (4 of 190); You might also like · Beach essentials (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ similar | 5.6 s |
 
 No failures.
 <!-- eval:end -->
