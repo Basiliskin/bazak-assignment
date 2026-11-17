@@ -283,3 +283,26 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Issues hit:** lint `preserve-caught-error` → `{ cause }`; WAL side files not covered by `*.db` → `data/` added to `.gitignore`.
 **Verified:** lint clean, typecheck ok, tests api 70/70, web 2/2; built API started from `/` creates `data/app.db` at the repo root; list `[]`, unknown id → 404 shape.
 **Next step:** `/developer S3 Assistant turn from docs/architecture.md`
+
+## 2026-11-17 16:40 : /developer S3 — Assistant turn
+
+**User input:**
+> /developer S3 Assistant turn from docs/architecture.md
+
+**Found before proposing:** `ai@7` exports `streamText`, `tool`, `stepCountIs`, `createUIMessageStream`, `JsonToSseTransformStream`, `UI_MESSAGE_STREAM_HEADERS`; test model is `MockLanguageModelV4` (`ai/test`).
+
+**Options offered:**
+- D24 LLM boundary: (a) small `LlmPort`, application supplies tool handlers, SDK only in the adapter, returns a web `ReadableStream` (rec.) / (b) SDK `ToolLoopAgent` in the service / (c) own SSE protocol without `useChat`.
+- D25 History: (a) text + compact list of shown Products, last 20 (rec.) / (b) replay stored tool-call/tool-result pairs.
+- Defaults stated: prompt as pure function; user Message saved before the LLM call; partial reply not saved on LLM error; one live check after offline tests.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D24 (a), D25 (a).
+**Built:** `assistant/domain` (`buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage`, `HistoryMessage`) · `application` (`LlmPort`, `ChatTurnService` — tool handlers keep tool-call order for parallel calls; time/ids injected) · `infrastructure/ai-sdk.llm.ts` (`streamText` + 2 tools, 3 steps, `createUIMessageStream` → SSE bytes; LLM error → `error` part; save failure → "could not be saved" `error` part) · `presentation/chat.controller.ts` (`POST /api/chat`, `ZodValidationPipe(ChatRequestSchema)`, keeps draining if the client disconnects so the reply is still saved) · `shared/presentation/zod-validation.pipe.ts` · e2e `test/chat.e2e-spec.ts` (9 cases) with scripted `MockLanguageModelV4`.
+**Live check 1 (gpt-6-luna, real catalog) found 2 bugs offline tests couldn't:** "a flight to Tokyo" → 3 searches, no `report_off_catalog`, **empty reply** (step budget spent on tools); multi-intent reply **copied the `[Shown — …]` history lines** into visible text.
+**Fixes:** last step forced to text (`prepareStep` → `toolChoice: 'none'`); prompt: report off-catalog first, don't search the item itself; shown-Products notes moved out of assistant text into separate system notes (D25 refined) — the new e2e then caught that the SDK rejects mid-conversation system messages → `allowSystemInMessages: true`, `instructions` (v7 name for `system`).
+**Live check 2:** all 5 correct — ≤$500 respected; "cheaper" follow-up used history; ambiguous → `guessed` + assumption + one question; flight → `report_off_catalog` + clear refusal; multi-intent → 2 groups; 10 Messages persisted. 4.7–6.3 s per turn. Prompt tightened: cheaper = cheapest shown − 0.01 (model used "≤ cheapest").
+**Verified:** lint clean, typecheck ok, tests api 97/97, web 2/2.
+**Next step:** `/developer S4 Full-page chat (A) from docs/architecture.md`

@@ -1,7 +1,10 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { LanguageModel } from 'ai';
+import { MockLanguageModelV4 } from 'ai/test';
 import { AppModule } from '../../src/app.module.js';
+import { LANGUAGE_MODEL } from '../../src/assistant/assistant.module.js';
 import { CatalogPort } from '../../src/catalog/application/catalog.port.js';
 import type { Product } from '../../src/catalog/domain/product.js';
 import { APP_CONFIG } from '../../src/shared/config/config.module.js';
@@ -17,13 +20,20 @@ export const testConfig: AppConfig = {
 };
 
 /** The real app with fakes at the ports — no network, no files. */
-export async function createTestApp(fakes: { catalog?: CatalogPort } = {}): Promise<INestApplication> {
+export async function createTestApp(
+  fakes: { catalog?: CatalogPort; model?: LanguageModel } = {},
+): Promise<INestApplication> {
   const catalog: CatalogPort = fakes.catalog ?? { getAll: async (): Promise<Product[]> => [] };
+  const model =
+    fakes.model ??
+    new MockLanguageModelV4({ doStream: () => Promise.reject(new Error('no LLM in this test')) });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(APP_CONFIG)
     .useValue(testConfig)
     .overrideProvider(CatalogPort)
     .useValue(catalog)
+    .overrideProvider(LANGUAGE_MODEL)
+    .useValue(model)
     .compile();
   const app = configureApp(moduleRef.createNestApplication({ logger: false }));
   await app.init();

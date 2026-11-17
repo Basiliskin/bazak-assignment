@@ -881,3 +881,79 @@
 ### 2026-11-17T12:53:44.589Z : /developer — user
 
 > agree to recomendations
+
+### 2026-11-17T12:56:33.225Z : /developer — assistant
+
+> S2 is done and committed as `6c1ea92`. It was built test-first. Lint and Prettier are clean, typecheck passes, and tests pass (API 70/70, web 2/2).
+> 
+> **What's built:**
+> - **`packages/contracts`:** `ProductCard`, `ProductGroup`, `Message` and `Conversation` are now zod schemas, with their types derived from them (D23).
+> - **`conversations/domain`:**
+>   - All pure functions: `deriveTitle` (≤40 characters at a word boundary, then "…"), `createConversation` and `appendMessage`.
+>   - The id and time are passed in, never read from a clock or random generator inside the logic.
+>   - `appendMessage` does nothing if the message id is already there, so a retry can't duplicate a message.
+> - **`application`:**
+>   - `ConversationRepository` is the storage port, and `ConversationsService` does list, get and delete (404 if unknown).
+>   - Neither imports Nest.
+> - **`infrastructure`:**
+>   - `SqliteConversationRepository` saves the whole Conversation in one transaction, rolled back on failure (D22).
+>   - Each message is its own row, and deleting a Conversation deletes its messages.
+>   - On read, `rowsToConversation` (pure) skips unreadable or invalid messages and logs how many it skipped (AC5.2).
+> - **`presentation`:** `GET /api/conversations`, plus `GET` and `DELETE /api/conversations/:id`. A non-UUID id gets a 400.
+> 
+> **Two small fixes along the way:**
+> - **`.gitignore` gap:** SQLite's side files (`app.db-wal`, `app.db-shm`) weren't covered by `*.db`, so the whole `data/` folder is now ignored.
+> - **Formatting:** Prettier caught a line I edited, fixed by amending the commit.
+> 
+> **Smoke test:** the built API, started from `/`, creates `data/app.db` at the repo root.
+> 
+> ➡️ Next step (the core slice: LLM, tools and streaming):
+> ```
+> /developer S3 Assistant turn from docs/architecture.md
+> ```
+
+### 2026-11-17T12:56:54.542Z : /developer — user
+
+> /developer S3 Assistant turn from docs/architecture.md
+
+### 2026-11-17T12:57:36.518Z : /developer — assistant
+
+> Before choosing anything I checked the installed SDK: `ai@7.0.173` exports `streamText`, `tool`, `stepCountIs`, `createUIMessageStream` and `pipeUIMessageStreamToResponse`. The fake model for tests is `MockLanguageModelV4`, from `ai/test`.
+> 
+> S3 has two real choices.
+> 
+> ---
+> 
+> ❓ **D24 — Where the AI SDK sits relative to the chat-turn logic**
+> - **(a) A small `LlmPort` that the application layer fills in.**
+>   - `ChatTurnService` (no SDK import) builds the system prompt and history and supplies the tool *handlers* as plain functions. For example, `searchProducts(query) → ProductGroup` uses `CatalogService` + `toProductGroup`.
+>   - The AI SDK adapter wraps those handlers in `tool()`, runs `streamText` (max 3 steps), and returns a standard web `ReadableStream`.
+>   - When the reply finishes, the adapter hands back a plain `{ text, productGroups, offCatalog }`. The service saves it. If saving fails, the adapter adds an `error` part saying the reply wasn't saved (AC5.4).
+> - **(b) The SDK's `ToolLoopAgent` plus `createAgentUIStreamResponse` called directly from the service.** Less code, but SDK types leak into the application layer, and saving ends up in SDK callbacks that are harder to test.
+> - **(c) Our own SSE events (`text-delta`, `products`, `done`).** Full control, but we'd lose `useChat` on the web side and rewrite what ADR 0001 chose the SDK for.
+> 
+> ➡️ **I recommend (a).** The SDK appears only in one adapter file (as ADR 0001 says), the service is tested with a fake `LlmPort`, and the e2e test still runs the real adapter with `MockLanguageModelV4`.
+> 
+> ---
+> 
+> ❓ **D25 — How earlier replies are shown to the LLM** (this matters for follow-ups like "show me cheaper ones", AC3.6)
+> - **(a) Plain text, with a short list of the products that were shown.** Each earlier assistant message goes back as its text plus a line like:
+> 
+>   `[Shown — "Phones under $500" (7 matches): #121 iPhone 6 $299.99, #122 Oppo F19 $399.99 …]`
+> 
+>   This is the "compact history" (`compactHistory`, last 20 messages, pure). It doesn't depend on any provider, and the model sees the prices it needs to go "cheaper".
+> - **(b) Replay the real tool-call and tool-result pairs from storage.** More faithful, but we'd have to store call ids, and the Responses API (which ***REDACTED*** needs) is picky about replayed item ids. That's a likely source of 400 errors.
+> 
+> ➡️ **I recommend (a).** It's robust, cheap in tokens, and easy to explain.
+> 
+> ---
+> 
+> **Defaults I'll use unless you object:**
+> - The system prompt is a pure function in code (`buildSystemPrompt`).
+> - The user message is saved *before* the LLM call, so if the reply fails, Retry resends the same message id, which is a no-op thanks to S2.
+> - A partial reply is **not** saved on an LLM error.
+> - I'll run one live check against ***REDACTED*** after the offline tests pass, and show you the result.
+
+### 2026-11-17T12:59:12.151Z : /developer — user
+
+> agree to recomendations

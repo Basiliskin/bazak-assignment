@@ -20,6 +20,8 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D21 | Catalog cache | Pure `cacheStatus` (empty/fresh/stale) + adapter: 10-min TTL, single-flight fetch, stale copy on error, zod per product (invalid skipped) |
 | D22 | Saving Conversations | Repository `save(conversation)` persists the whole aggregate in one transaction (upsert conversation, insert-or-ignore Messages by id); one row per Message |
 | D23 | Message schema | zod `MessageSchema`/`ProductGroupSchema`/`ProductCardSchema`/`ConversationSchema` in `packages/contracts`; types derived from them |
+| D24 | LLM boundary | `LlmPort.streamTurn({system, history, tools, onFinish})` → `{headers, body: ReadableStream}`; application supplies tool handlers; AI SDK only in `ai-sdk.llm.ts`; last step forced to text (`toolChoice: 'none'`) |
+| D25 | History to LLM | Last 20 Messages as text; Products each reply showed go as a following **system note** (`allowSystemInMessages`), never inside assistant text |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -159,7 +161,7 @@ SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id,
 | DummyJSON down | Cached catalog used if present; otherwise tool returns `CatalogUnavailable` → model says it can't search now (AC3.8) |
 | LLM error mid-stream | `error` part → web keeps partial text, shows Retry (`useChat.regenerate`); user message is already saved |
 
-**History sent to the LLM**: last 20 Messages (`compactHistory`, pure); older Product Groups reduced to `{label, products:[{id,title,price}]}`.
+**History sent to the LLM**: last 20 Messages (`compactHistory`, pure); after each assistant reply a system note `Shown in the reply above — "label" (4 of 12 matches): #id title $price, …` (D25). Notes inside assistant text made the model copy them into replies (seen live).
 
 ## Frontend
 - Routes: `/` = `ShopPage` + `WidgetShell` (primary); `/chat` (new) and `/chat/:id` = `PageShell` full page. New Conversations get `conversationId = crypto.randomUUID()` on the client.
@@ -186,7 +188,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | **S0** Scaffold + tooling | npm workspaces; `packages/contracts` (package.json, tsconfig, zod); Nest app with config (zod env), `GET /api/health`; Vite React app with Tailwind + Router; ESLint + Prettier; Vitest (api + web); `npm run dev` runs contracts watch + api (:3001) + web (:5173, proxy `/api`). ✅ done | — |
 | **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`; `DomainExceptionFilter`. ✅ done | AC3.2 (filter), AC3.7, AC3.8 |
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. ✅ done | AC5.1–5.2, AC6.1–6.2, AC6.4 |
-| **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModel`. | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
+| **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModelV4`. ✅ done | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
 | **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
 | **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. | AC4.x, R2–R4 display |
 | **S6** Eval suite | `evals/cases.ts` (6 cases + out-of-stock), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. | AC7.2–7.3 |

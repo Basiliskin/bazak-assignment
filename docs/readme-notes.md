@@ -43,3 +43,10 @@
 ## /developer S2
 - Storage: `data/app.db` (SQLite, WAL) at the repo root, created on first start; delete the file to reset. One row per Message, validated with zod on read — a corrupted row is skipped, the rest of the chat loads.
 - Endpoints: `GET /api/conversations`, `GET|DELETE /api/conversations/:id`.
+
+## /developer S3
+- One turn: save user Message → `streamText` (gpt-6-luna, 2 tools, ≤3 steps, last step text-only) → UI message stream (SSE) → on finish save assistant Message with its Product Groups.
+- Tools are the structured query: the LLM fills `search_products` (category enum, single-word keywords, price range, sort, offset, confidence + assumption); code enforces prices/stock/paging. `report_off_catalog` marks off-catalog requests.
+- Live findings worth telling: the model initially searched for "flight" three times and replied with nothing → forced final text step + prompt rule; it copied history annotations into replies → moved them to system notes.
+- History: last 20 Messages; Products each reply showed are passed as system notes (id, title, price) so follow-ups work.
+- Latency ≈ 5–6 s per turn with tools (gpt-6-luna via Responses API).

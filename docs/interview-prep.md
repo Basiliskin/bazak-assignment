@@ -56,3 +56,11 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - Why save the whole Conversation instead of `insertMessage`? → D22 aggregate persistence; insert-or-ignore makes retries idempotent; transaction + rollback spec
 - Why is `appendMessage` a no-op for a known Message id? → client retries / regenerate can't duplicate a Message
 - Why `node:sqlite` over a JSON file or an ORM? → ADR 0003; zero deps, transactions, per-row corruption isolation
+
+## /developer S3
+- Where does the AI SDK live, and how do you test the turn without it? → D24; `LlmPort` + fake in `chat-turn.service.spec.ts`; real adapter + `MockLanguageModelV4` in `test/chat.e2e-spec.ts`
+- How can the LLM not invent a Product on screen? → cards render only from `tool-output-available` (real `filterProducts` results); text can't add cards (R1)
+- What if the model keeps calling tools and never answers? → `stepCountIs(3)` + `prepareStep` forces `toolChoice: 'none'` on the last step (found live: empty reply to "a flight to Tokyo")
+- How does "show me cheaper ones" work without replaying tool calls? → D25 system notes with id/title/price; why not inside assistant text (model copied them — seen live)
+- What happens on LLM failure mid-reply / DB write failure / client disconnect? → `error` part (AC2.3) / "could not be saved" part (AC5.4) / controller keeps draining so the reply is still saved
+- How are parallel tool calls kept in order in the saved Message? → slot reserved at call time in `createTurnTools`
