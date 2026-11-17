@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Global, Module } from '@nestjs/common';
-import { parseConfig, type AppConfig } from './app-config.js';
+import { parseConfig, type AppConfig, type ConfigResult } from './app-config.js';
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 
@@ -17,10 +17,15 @@ function loadEnvFileIfPresent(file: URL): void {
   }
 }
 
-/** Imperative shell: reads the environment once at boot and fails fast with readable errors. */
-export function loadConfigOrExit(): AppConfig {
+/** Imperative shell: root `.env` + process environment → validated config (also used by the live eval). */
+export function loadConfig(): ConfigResult {
   loadEnvFileIfPresent(ROOT_ENV_FILE);
-  const result = parseConfig(process.env, ROOT_DIR);
+  return parseConfig(process.env, ROOT_DIR);
+}
+
+/** Reads the environment once at boot and fails fast with readable errors. */
+export function loadConfigOrExit(): AppConfig {
+  const result = loadConfig();
   if (result.ok) return result.config;
   console.error(`Invalid configuration:\n  ${result.errors.join('\n  ')}`);
   process.exit(1);

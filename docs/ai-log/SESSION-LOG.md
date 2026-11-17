@@ -356,3 +356,25 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Built:** `assistant/domain/resolve-paged-query.ts` (pure; offset > 0 + matching label, case/space-insensitive, latest group wins) wired into `createTurnTools`; `compactHistory` notes add `search: category …, keywords …, price ≤/≥ …, sort …`; system prompt: "repeat that group's search exactly (same label, filters and sortBy from its note)".
 **Verified:** lint clean, typecheck ok, tests api 104/104 (5 resolver cases, service test where the model changes sortBy/maxPrice on page 2, history note test), web 50/50. Live (gpt-6-luna): "phones under $500, cheapest first" → `price-asc` 1–4; "Show more: Phones under $500" → `price-asc`, offset 4, max 500, next four at $299.99 — no repeat.
 **Next step:** `/developer S6 Eval suite from docs/architecture.md`
+
+## 2026-11-17 18:20 : /developer S6 — Eval suite
+
+**User input:**
+> /developer S6 Eval suite from docs/architecture.md
+> agree to recomendations
+
+**Found before proposing:** the saved assistant Message already holds each group's `query` (`confidence`, `assumption`) and `offCatalog`, so rules can be checked on stored data — no SSE parsing needed.
+
+**Options offered:**
+- D32 How the eval runs a turn: (a) real `AppModule` in-process (real model + real DummyJSON, `:memory:` SQLite) via `POST /api/chat` + `GET /api/conversations/:id`, under Vitest with SWC (rec.) / (b) HTTP client against a running `npm run dev` / (c) call `streamText` directly.
+- D33 Rule checks: (a) pure `evals/checks.ts` on the saved Message + Catalog, unit-tested (rec.) / (b) inline in the runner / (c) parse the SSE stream.
+- D34 Report: (a) rewrite only `<!-- eval:start/end -->` in `docs/qa-report.md`, exit 1 on failure (rec.) / (b) overwrite the file / (c) separate `docs/eval-report.md`.
+- Defaults stated: 6 cases + R9 out-of-stock on every case; 1 run per case, sequential; no LLM judge; key via existing config, clear error if missing.
+
+**Decision:** D32 (a), D33 (a), D34 (a), defaults accepted.
+**Built:** `evals/` as `@app/evals` workspace — `cases.ts`, `checks.ts` (pure: R1 ids+titles in Catalog, R7, R9, reply text on every case; R2/R3/R4/R5/R6 per case), `report.ts` (pure `renderEvalSection`, `replaceEvalSection`, `casePassed`), `run-evals.eval.ts` (shell), `vitest.config.ts` (offline specs) + `vitest.live.config.ts` (SWC); root `npm run eval`; `config.module.ts` now exports `loadConfig()` (reused by the eval, `loadConfigOrExit` wraps it).
+**Live run 1:** 6/6, but follow-up passed R5 vacuously (0 cheaper results — the $89.99 watch was already on page 1). Fix: first turn "most expensive first" + `intents: ['mens-watches']` so an empty answer fails.
+**Live run 2:** 6/6 meaningful — follow-up showed 2 watches under the previous cheapest ($8,999.99); 3.5–8.7 s per case.
+**Finding (not fixed):** "a flight to Tokyo" → correct `report_off_catalog` + refusal, but also a related search "Travel bags for a Tokyo trip" with 0 results (empty group). Allowed by R3/R8; candidate prompt tweak for /qa.
+**Verified:** lint clean, typecheck ok (4 workspaces), Prettier clean, tests api 104/104, web 50/50, evals 22/22; `npm run eval` 6/6, written to `docs/qa-report.md`.
+**Next step:** `/developer S7 Widget + shop page (D) from docs/architecture.md` (Should — or `/qa` if cutting S7 for time)

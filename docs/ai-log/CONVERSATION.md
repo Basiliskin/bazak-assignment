@@ -1158,3 +1158,77 @@
 ### 2026-11-17T13:33:04.096Z : /developer — user
 
 > do (a), and also the one-line (b) so the model's reply text matches the page.
+
+### 2026-11-17T13:35:05.852Z : /developer — assistant
+
+> "Show more" now pages correctly. I did (a) and (b) and committed them as `77005e4`. It's checked against the real model: a "cheapest first" search, then Show more, gave the next four phones under $500 in the same price order, with no repeats.
+> 
+> **What changed**
+> - **(a) Paging is now decided by code.** A new pure function, `apps/api/src/assistant/domain/resolve-paged-query.ts`, handles the page-2-and-later case. If the requested label matches a group already shown (ignoring case and spaces; the latest one wins), it reuses that group's stored search and takes only the page offset from the model. First pages and unknown labels are left exactly as the model wrote them.
+> - **(b) The history notes now say how each group was searched**, e.g. `search: category smartphones, price ≤ $500, sort price-asc`. The prompt line now says to repeat that search exactly, so the reply text describes the page actually shown.
+> 
+> **Checks**
+> - Lint and typecheck are clean. Tests: api 104/104, web 50/50.
+> - New tests cover:
+>   - the five resolver cases;
+>   - a service test where the model changes the sort and price limit on page 2 and the stored search still wins;
+>   - the new note format.
+> 
+> **Known gap:** if the model reuses a label for a genuinely different search on page 2 or later, the old search wins. A first-page search with the same label keeps the model's new filters.
+> 
+> The architecture doc (new D31 row), SESSION-LOG, interview-prep and readme-notes are updated.
+> 
+> ➡️ Next step: `/developer`
+> Suggested prompt: `/developer S6 Eval suite from docs/architecture.md`
+
+### 2026-11-17T13:35:18.976Z : /developer — user
+
+> /developer S6 Eval suite from docs/architecture.md
+
+### 2026-11-17T13:36:10.605Z : /developer — assistant
+
+> I've read S6, R1–R6, AC7.2–7.3 and the assistant code. Good news: the saved assistant Message already holds everything the checks need — each Product Group keeps its `query` (including `confidence` and `assumption`), and `offCatalog` records the off-catalog reports. So the eval can check rules on saved data without parsing the stream.
+> 
+> ❓ **D32 — How the eval runs a chat turn**
+> (a) **In-process app (Recommended).** `npm run eval` starts the real `AppModule` with the real model and the real DummyJSON catalog, using a `:memory:` SQLite. It sends turns with `POST /api/chat`, then `GET /api/conversations/:id`. It runs under Vitest with its own `evals/vitest.config.ts`, because Nest decorators need SWC. One command, no server to start, and your `data/app.db` stays clean. It goes through the whole path, including `resolvePagedQuery` and history notes.
+> (b) **HTTP client against a running `npm run dev`.** Smallest script (plain `fetch`, Node runs it directly). But it needs two terminals, and every eval chat shows up in your sidebar.
+> (c) **Call `streamText` directly with the system prompt.** Fastest to run, but it skips our tool handlers, persistence and history compaction. It would test the prompt, not the app.
+> ➡️ (a) tests what the reviewer will actually use, with one command and nothing left behind. Vitest is already set up for SWC.
+> 
+> ❓ **D33 — Where the rule checks live and what they read**
+> (a) **Pure `evals/checks.ts` (Recommended).** Each rule is a pure function `(case expectations, saved assistant Message, catalog ids/prices) → {rule, pass, detail}`:
+> - R1: every card id exists in the real catalog
+> - R6: no card price is above `maxPrice`
+> - R4: number of groups
+> - R3: `offCatalog` is not empty
+> - R2: some group has `confidence: 'guessed'` and a non-empty `assumption`, and the reply has a `?`
+> - R5: the follow-up's cheapest price is below the earlier cheapest, or there are 0 results
+> 
+> Plus a no-out-of-stock check. All of these get offline unit tests in `npm test`.
+> (b) The same checks written inline in `run-evals.ts`. Less code, but the rule logic is never tested and the runner and the rules end up mixed together.
+> (c) Parse the SSE stream for tool inputs instead of reading the saved Message. It would see raw model inputs before `resolvePagedQuery`, but it adds parser code and duplicates what's already saved.
+> ➡️ (a) follows the pure-core rule, and the checks themselves get tested for free without network access.
+> 
+> ❓ **D34 — How results reach `docs/qa-report.md`**
+> (a) **Only the section between `<!-- eval:start -->` and `<!-- eval:end -->` is rewritten; the file is created if it's missing (Recommended).** The table has one row per case: case, request, groups, rules ✅/❌ with a short detail, and time. A header line gives the model, date and pass count. `/qa` can write its own sections around it, and the process exits with code 1 if anything fails.
+> (b) The eval overwrites the whole file. Simpler, but anything `/qa` writes there gets wiped.
+> (c) A separate `docs/eval-report.md`. Clean, but AC7.3 names `qa-report.md`.
+> ➡️ (a) keeps both skills writing to one report without overwriting each other.
+> 
+> **Defaults (object if you disagree):**
+> - 7 cases:
+>   - plain: "show me smartphones"
+>   - price: "a phone under $500"
+>   - ambiguous: "something cheap and cool"
+>   - off-catalog: "a flight to Tokyo"
+>   - multi-intent: "a phone under $500 and a lipstick"
+>   - follow-up: two turns, "show me laptops" → "show me cheaper ones"
+>   - out-of-stock: no card in any case has stock 0; this check runs on every case
+> - 1 run per case, run one after another. No repeats and no LLM judge (the judge is already listed under "with more time").
+> - `OPENAI_KEY` is read from `.env` through the existing config. If it's missing, the eval exits early with a clear message.
+> 
+> Pick a/b/c for each, or mix them.
+
+### 2026-11-17T13:38:06.716Z : /developer — user
+
+> agree to recomendations

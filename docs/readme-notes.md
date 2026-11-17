@@ -63,3 +63,10 @@
 - Presentational components hold no logic: display rules are pure functions in `lib/product-view.ts`; containers own state and fetching.
 - Trade-off: "Show more" goes through the LLM (one model call, ~5 s, persisted like any turn) instead of a direct paging endpoint.
 - Found live: on "Show more" the model changed the sort order, so a Product repeated. Fix: paging reuses the stored search in code (only the offset comes from the model), and history notes now name the search so the reply text matches.
+
+## /developer S6
+- `npm run eval` runs 6 live cases (plain, price-limited, ambiguous, off-catalog, multi-intent, follow-up) against `gpt-6-luna` and the real Catalog, ~35 s, a few cents; writes the table to `docs/qa-report.md` and exits 1 on any failure. Not part of `npm test` (costs money, non-deterministic).
+- Rules are checked in code on the saved Message — R1 ids/titles exist, R2 guessed search + Assumption + a question, R3 `report_off_catalog` called, R4 one group per intent, R5 cheaper than before, R6 price limit, R7 ≤ 4 cards, R9 in stock. The checks themselves are pure and unit-tested offline.
+- Trade-off: one run per case; a pass is a smoke signal, not a pass rate. Wording quality is not checked.
+- Found by the eval: "a flight to Tokyo" makes a related search ("Travel bags…") that returns 0 Products — an empty group under a correct refusal. Allowed by the rules (reply explains), but noisy.
+- With more time: repeat each case N times and report a pass rate, an LLM judge for wording/Assumption quality, more cases (0 results, show more, prompt injection in Product text).

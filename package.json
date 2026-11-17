@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "evals"
   ],
   "engines": {
     "node": ">=22.12"
@@ -16,6 +17,7 @@
     "build": "npm run build --workspaces",
     "pretest": "npm run build:contracts",
     "test": "npm run test --workspaces --if-present",
+    "eval": "npm run build:contracts && npm run eval -w @app/evals",
     "typecheck": "npm run build:contracts && npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write ."

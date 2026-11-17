@@ -79,3 +79,11 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How does "Show more" work, and what can go wrong? → it sends `Show more: <label>` to the Assistant; found live: the model changed `sortBy` on page 2 → a repeated Product (see SESSION-LOG S5)
 - How do you stop "Show more" from repeating or skipping Products? → D31; `apps/api/src/assistant/domain/resolve-paged-query.ts` (code keeps the stored query, model only supplies the offset) + search described in history notes (`compact-history.ts`)
 - What if the model reuses a label for a genuinely different search? → only pages with offset > 0 are resolved; a first-page search with the same label keeps the model's filters (spec case)
+
+## /developer S6
+- Why does the eval boot the real Nest app in-process instead of calling `streamText` or a running server? → D32; `evals/run-evals.eval.ts` (real model + real Catalog, `:memory:` SQLite, through `POST /api/chat`)
+- How do you check an LLM's answer without an LLM judge? → D33; pure `evals/checks.ts` on the saved Message (ids vs Catalog, prices, group count, stored `confidence`/`assumption`, `offCatalog`), unit-tested in `checks.spec.ts`
+- What can the coded checks *not* catch? → wording quality, whether the Assumption is sensible, whether the follow-up question is good (see `docs/qa-report.md` rules line)
+- One run per case on a non-deterministic model — how much is a pass worth? → a smoke signal, not a statistic; repeats/LLM-judge are "with more time" (readme-notes)
+- How did you stop the follow-up case from passing vacuously? → first run passed R5 with 0 Products; case now asks "most expensive first" and also requires mens-watches cards (`evals/cases.ts`)
+- Why does the eval write only a marked section of `qa-report.md`? → D34; `replaceEvalSection` keeps what `/qa` writes around it
