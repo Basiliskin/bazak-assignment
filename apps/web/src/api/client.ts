@@ -1,9 +1,11 @@
 import {
   ConversationSchema,
   ConversationSummarySchema,
+  ProductCardSchema,
   ProductDetailsSchema,
   type Conversation,
   type ConversationSummary,
+  type ProductCard,
   type ProductDetails,
 } from '@app/contracts';
 
@@ -39,6 +41,11 @@ export const api = {
   },
   async deleteConversation(id: string): Promise<void> {
     await request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+  /** Shop page grid: top-rated in-stock Product Cards. */
+  async listTopProducts(limit: number): Promise<ProductCard[]> {
+    const res = await request(`/products?limit=${limit}`);
+    return ProductCardSchema.array().parse(await res.json());
   },
   async getProduct(id: number): Promise<ProductDetails> {
     const res = await request(`/products/${id}`);

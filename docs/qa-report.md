@@ -32,7 +32,7 @@
 | AC6.2 list, newest first, titles | ✅ `conversations.service.spec.ts`, e2e |
 | AC6.3 switch back and continue | ✅ e2e reload · smoke test (switched back, follow-up used the earlier price) |
 | AC6.4 delete (Could) | ✅ e2e DELETE |
-| US6b widget (Should) | ❌ not built — S7 cut; `/` is a placeholder shop page linking to `/chat` |
+| US6b widget (Should) | ✅ built after /qa in S7 — `WidgetShell.spec.tsx` (AC6b.1–6b.3), `router.spec.tsx` (`/`), `top-rated.spec.ts`, `products.e2e-spec.ts`; live check in Chrome (desktop + 606 px window, the narrowest Chrome allows) |
 | AC7.1 offline flow | ✅ `chat.e2e-spec.ts` (MockLanguageModel + fake Catalog + in-memory SQLite) |
 | AC7.2 live eval | ✅ `npm run eval`, 6 cases (below) |
 | AC7.3 one command per suite | ✅ `npm test`, `npm run eval` |

@@ -1,10 +1,24 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
-import type { ProductDetails } from '@app/contracts';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  ProductListQuerySchema,
+  type ProductCard,
+  type ProductDetails,
+  type ProductListQuery,
+} from '@app/contracts';
+import { ZodValidationPipe } from '../../shared/presentation/zod-validation.pipe.js';
 import { CatalogService } from '../application/catalog.service.js';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly catalog: CatalogService) {}
+
+  /** Shop page grid (US6b): top-rated in-stock Product Cards. */
+  @Get()
+  list(
+    @Query(new ZodValidationPipe(ProductListQuerySchema)) query: ProductListQuery,
+  ): Promise<ProductCard[]> {
+    return this.catalog.topRated(query.limit);
+  }
 
   /** Details popup (AC4.3). */
   @Get(':id')

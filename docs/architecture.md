@@ -28,6 +28,9 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D29 | Product component wiring | Presentational components get props + callbacks only (`onOpenProduct`, `onShowMore`); display rules in pure `lib/product-view.ts`; `ChatView` owns the open id, `ProductDetailsContainer` fetches |
 | D30 | Details contract | `ProductDetailsSchema` (zod) in contracts; web parses `GET /api/products/:id`; API parses DummyJSON with the same schema |
 | D31 | "Show more" paging | Pure `resolvePagedQuery`: a page with offset > 0 whose label matches a shown group reuses that group's stored query, only the offset changes; history notes also name the search (category, keywords, price, sort) |
+| D37 | Shop grid | Pure `topRated(products, limit)` (in stock, rating desc, ties by id); `GET /api/products?limit=` validated by `ProductListQuerySchema` (1–30, default 10) |
+| D38 | Widget pointer | Pure `parseWidgetState`/`serializeWidgetState` (zod; invalid → closed + new uuid) + `useWidgetState` (localStorage in try/catch) |
+| D39 | Widget list | `WidgetConversations` container reuses `ConversationList` + queries, slides over the chat; Esc hides it |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -79,7 +82,7 @@ apps/
       presentation/    chat.controller.ts  POST /api/chat
   web/src/
     api/               client.ts (fetch wrapper), queries.ts (TanStack Query hooks)
-    shells/            WidgetShell.tsx, PageShell.tsx, ShopPage.tsx (containers)
+    shells/            WidgetShell.tsx, PageShell.tsx, ShopPage.tsx (containers), useWidgetState.ts
     chat/              ChatView.tsx (container), useShoppingChat.ts (useChat wiring),
                        to-ui-messages.ts, to-chat-items.ts (UI parts → view model incl. ProductGroup[]) ← pure
     conversations/     ConversationSidebar.tsx (container), ConversationList.tsx
@@ -198,4 +201,4 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. ✅ done (D26 stored→UI messages→`toChatItems` view model; D27 `/chat` → `/chat/<uuid>`) | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
 | **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. ✅ done (`toChatItems` from S4 already maps tool outputs → groups; D28–D30) | AC4.x, R2–R4 display |
 | **S6** Eval suite | `evals/cases.ts` (6 cases + out-of-stock), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. ✅ done (D32 in-process app, D33 pure `evals/checks.ts`, D34 marked section; `evals/` is the `@app/evals` workspace, `npm run eval`) | AC7.2–7.3 |
-| **S7** Widget + shop page (D) | `GET /api/products?limit=10`, `ShopPage`, `WidgetShell` (FAB, window, in-window list, ⤢, localStorage pointer), carousel layout, full screen on phones. Cut first if time is short. | US6b |
+| **S7** Widget + shop page (D) | `GET /api/products?limit=10`, `ShopPage`, `WidgetShell` (FAB, window, in-window list, ⤢, localStorage pointer), carousel layout, full screen on phones. ✅ done (D37 pure `topRated` + zod query; D38 pure `parseWidgetState` + `useWidgetState`; D39 `WidgetConversations` reuses `ConversationList`) | US6b |

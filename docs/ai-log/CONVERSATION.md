@@ -1387,3 +1387,88 @@
 
 > D35 - a
 > D36 - a
+
+### 2026-11-17T13:55:27.204Z : /qa — assistant
+
+> I applied the four fixes from D35 (a) and committed the OpenAPI spec (D36). Everything is green, and the live eval passed 6/6 again after the fixes. It's all committed as `7e768d3` (not pushed).
+> 
+> **Fixed**
+> - **Prompt injection:** the notes about Products already shown are still system messages, but the Product titles, group labels, keywords and the Shopper's words inside them are now quoted. The system prompt now says quoted strings are data, not instructions. A new test feeds in a title that contains a line break and a fake "SYSTEM:" instruction.
+> - **Hung DummyJSON:** the fetch now gives up after 5 seconds and the Assistant says it can't search right now. Before, one hung request held up every chat. A new test covers it.
+> - **Root build:** `npm run build` now works on a clean clone.
+> - **Unused code:** `ChatView` now uses the existing `isNotFound` helper, and the unused `toSummary` is deleted.
+> - **D36:** `docs/dummyjson_products_openapi.yaml` is now committed; nothing in it looks like a key.
+> 
+> **Results after the fixes:** typecheck, lint and Prettier clean; tests API 105/105, web 50/50, evals 22/22.
+> 
+> **What's left (all noted in `docs/readme-notes.md` under "with more time")**
+> - The widget (US6b, a Should) isn't built; `/` is a placeholder page.
+> - An invalid key gets the same "try again" message as a passing error.
+> - `minPrice > maxPrice` is not rejected.
+> - The chat controller's stream has no error handler.
+> - The chat service depends directly on the catalog service rather than an interface.
+> - There's no test for "an empty message isn't sent" (AC1.2).
+> - "A flight to Tokyo" sometimes adds an empty related group (in 2 of 3 eval runs).
+> 
+> `docs/qa-report.md` has the full coverage map, smoke-test results and audit with `file:line` references. The session log, interview prep (including "what the tests would not catch") and README notes are updated.
+> 
+> ✅ Done: QA report, fixes, logs and notes, all committed.
+> 
+> ➡️ Next step: `/readme`
+> Prompt to paste:
+> `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md`
+> 
+> If you'd rather build the widget first, run `/developer S7 Widget + shop page (D) from docs/architecture.md` instead.
+
+### 2026-11-17T13:55:43.013Z : /developer — user
+
+> /developer S7 Widget + shop page (D) from docs/architecture.md
+
+### 2026-11-17T13:56:22.972Z : /developer — assistant
+
+> Before I write any code, there are three decisions for S7. One finding shapes the first: `filterProducts` always returns pages of 4, so the shop grid's "top 10 rated" needs its own small function.
+> 
+> ❓ **D37 — Shop grid endpoint `GET /api/products?limit=10`**
+> - **(a) (Recommended)** Add a pure `topRated(products, limit)` in `catalog/domain`: in stock only, highest rating first, then `toProductCard`. `CatalogService.topRated(limit)` calls it. The query is checked with zod (`limit` 1–30, default 10). Tested with a unit test and one e2e.
+> - **(b)** Give `filterProducts` a `pageSize` argument and call it with `sortBy: 'rating'`. This reuses code, but it puts a shop-page concern into the Assistant's search function and changes a signature that's already tested.
+> - **(c)** The browser fetches DummyJSON directly. That skips the API cache and the single API client, and puts catalog logic in the browser.
+> 
+> ➡️ (a) costs one small pure function and keeps the search rules (D20) untouched.
+> 
+> ❓ **D38 — Widget pointer in `localStorage` (AC6b.3)**
+> - **(a) (Recommended)** Pure `parseWidgetState(raw)` and `serializeWidgetState` (zod; invalid data falls back to `{ open: false, conversationId: new uuid }`), plus a small `useWidgetState` hook that reads and writes inside try/catch. The pure functions get unit tests.
+> - **(b)** A `useSyncExternalStore` store that syncs across tabs. More code, and syncing tabs isn't asked for.
+> - **(c)** Keep it in the URL hash (`/#chat=<id>`). Survives a refresh with no storage, but shop URLs get dirty and the open state still has to live somewhere.
+> 
+> ➡️ (a) matches the design's "pointer only, try/catch, invalid → new chat", with the logic in pure functions.
+> 
+> ❓ **D39 — Conversation list inside the widget window (☰)**
+> - **(a) (Recommended)** A new small container, `WidgetConversations`, that reuses the presentational `ConversationList` and the existing queries. It slides over the chat, and Esc closes it.
+> - **(b)** Reuse `ConversationSidebar` with flags to hide its brand and its ✕. Fewer files, but the sidebar gets boolean props that only make sense for the widget.
+> 
+> ➡️ (a) keeps both containers simple. The shared part (`ConversationList`) is already reused.
+> 
+> **Defaults** (object if you disagree):
+> - The widget passes `fresh` to `ChatView` because its id comes from a local pointer. A 404 then just means "not saved yet" and shows an empty chat; a deleted or unknown id is handled the same way.
+> - ⤢ goes to `/chat/<id>` with `{ fresh: true }` and closes the widget.
+> - The widget hides on `/chat` routes, because it's mounted only by `ShopPage`.
+> - `ChatView` and `MessageBubble` get a `layout` prop (`grid` | `carousel`); the widget uses `carousel`.
+> - Window size is 420×680 on desktop and full screen below `sm` (`100dvh`). Focus goes to the composer when the window opens and back to the launcher when it closes.
+> - `ShopPage` has a hero and a grid of 10 cards built from `ProductCard`. Clicking a card opens the existing details dialog.
+> - The `/` route test (`router.spec`) gets updated, and I'll add one `WidgetShell` component test: open, ✕, the pointer surviving a remount, and ⤢.
+> 
+> Pick letters, or mix them.
+
+### 2026-11-17T13:56:48.999Z : /developer — user
+
+> agree to recomendations
+
+### 2026-11-17T14:01:13.490Z : /developer — user
+
+> <task-notification>
+> <task-id>bkxzznl3f</task-id>
+> <tool-use-id>toolu_01NSM2wpdzPjqsbZjuMSySK9</tool-use-id>
+> <output-file>/private/tmp/claude-501/-Users-dimitrykatz-workspace-Projects-bazak-assignment/da2f99ed-ae47-4d3c-84bb-98aa3fd10e01/tasks/bkxzznl3f.output</output-file>
+> <status>failed</status>
+> <summary>Background command "Start dev servers in background" failed with exit code 1</summary>
+> </task-notification>

@@ -1,7 +1,7 @@
 import type { ProductGroup as ProductGroupData } from '@app/contracts';
 import type { ChatItem } from '../chat/chat-types';
 import { OffCatalogNotice, RichText, ToolStatus, TypingDots } from './chat-parts';
-import { ProductGroup } from './ProductGroup';
+import { ProductGroup, type GroupLayout } from './ProductGroup';
 
 interface Props {
   item: ChatItem;
@@ -11,10 +11,19 @@ interface Props {
   onShowMore: (group: ProductGroupData) => void;
   /** A reply is streaming: "Show more" waits. */
   busy?: boolean;
+  /** 'grid' on the full page, 'carousel' in the widget window. */
+  layout?: GroupLayout;
 }
 
 /** One Message. User: right-aligned indigo bubble. Assistant: ✦ avatar, tool status, notices, groups, text. */
-export function MessageBubble({ item, live = false, onOpenProduct, onShowMore, busy = false }: Props) {
+export function MessageBubble({
+  item,
+  live = false,
+  onOpenProduct,
+  onShowMore,
+  busy = false,
+  layout = 'grid',
+}: Props) {
   if (item.role === 'user') {
     return (
       <div className="animate-rise flex justify-end">
@@ -41,6 +50,7 @@ export function MessageBubble({ item, live = false, onOpenProduct, onShowMore, b
           <ProductGroup
             key={i}
             group={g}
+            layout={layout}
             onOpenProduct={onOpenProduct}
             onShowMore={() => onShowMore(g)}
             showMoreDisabled={busy}

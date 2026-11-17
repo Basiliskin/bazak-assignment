@@ -6,6 +6,7 @@ import { AssistantAvatar, MessageBubble } from '../components/MessageBubble';
 import { ErrorBlock, TypingDots } from '../components/chat-parts';
 import { Composer } from '../components/Composer';
 import { EmptyState } from '../components/EmptyState';
+import type { GroupLayout } from '../components/ProductGroup';
 import { ProductDetailsContainer } from '../products/ProductDetailsContainer';
 import { describeChatError } from './describe-chat-error';
 import { useShoppingChat } from './useShoppingChat';
@@ -15,13 +16,15 @@ interface Props {
   /** Just created by "New chat": a 404 means "not saved yet", not "not found" (D27). */
   fresh: boolean;
   onNewChat: () => void;
+  /** Product Group layout: 'grid' (full page, default) or 'carousel' (widget). */
+  layout?: GroupLayout;
 }
 
 /**
  * One Conversation: loads its history, then hands it to `ChatThread`. Shared by both shells.
  * Waits for a fetch made on this mount so a reopened Conversation never starts from a stale cache.
  */
-export function ChatView({ conversationId, fresh, onNewChat }: Props) {
+export function ChatView({ conversationId, fresh, onNewChat, layout = 'grid' }: Props) {
   const conversation = useConversation(conversationId);
 
   if (!conversation.isFetchedAfterMount) return <Centered>Loading conversation…</Centered>;
@@ -29,7 +32,7 @@ export function ChatView({ conversationId, fresh, onNewChat }: Props) {
   if (conversation.isError) {
     const status = conversation.error instanceof ApiError ? conversation.error.status : 0;
     if (isNotFound(conversation.error) && fresh)
-      return <ChatThread conversationId={conversationId} stored={NO_MESSAGES} />;
+      return <ChatThread conversationId={conversationId} stored={NO_MESSAGES} layout={layout} />;
     return (
       <Centered>
         <p className="text-base font-medium text-zinc-900">
@@ -49,7 +52,13 @@ export function ChatView({ conversationId, fresh, onNewChat }: Props) {
     );
   }
 
-  return <ChatThread conversationId={conversationId} stored={conversation.data?.messages ?? NO_MESSAGES} />;
+  return (
+    <ChatThread
+      conversationId={conversationId}
+      stored={conversation.data?.messages ?? NO_MESSAGES}
+      layout={layout}
+    />
+  );
 }
 
 const NO_MESSAGES: Message[] = [];
@@ -66,7 +75,15 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 /** Messages + composer for one Conversation, live via `useShoppingChat`. */
-function ChatThread({ conversationId, stored }: { conversationId: string; stored: readonly Message[] }) {
+function ChatThread({
+  conversationId,
+  stored,
+  layout,
+}: {
+  conversationId: string;
+  stored: readonly Message[];
+  layout: GroupLayout;
+}) {
   const chat = useShoppingChat(conversationId, stored);
   const [openProductId, setOpenProductId] = useState<number | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
@@ -94,6 +111,7 @@ function ChatThread({ conversationId, stored }: { conversationId: string; stored
                 item={item}
                 live={chat.busy && item === last && item.role === 'assistant'}
                 busy={chat.busy}
+                layout={layout}
                 onOpenProduct={setOpenProductId}
                 // The Assistant repeats that group's search with the next offset (system prompt).
                 onShowMore={(group) => void chat.send(`Show more: ${group.label}`)}

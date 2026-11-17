@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
+import { phoneGroup } from '../test/fixtures';
 import { routes } from './router';
 
 const UUID = /^\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -24,15 +25,19 @@ beforeEach(() => {
     vi.fn(async (url: string) =>
       url === '/api/conversations'
         ? respond([{ id: 'c1', title: 'show me smartphones', updatedAt: new Date().toISOString() }])
-        : respond({ error: { code: 'CONVERSATION_NOT_FOUND', message: 'Conversation not found' } }, 404),
+        : url === '/api/products?limit=10'
+          ? respond([phoneGroup.products[0]])
+          : respond({ error: { code: 'CONVERSATION_NOT_FOUND', message: 'Conversation not found' } }, 404),
     ),
   );
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('routes', () => {
-  it('/ shows the shop page', () => {
+  it('/ shows the shop page with top-rated Products and the copilot launcher (US6b)', async () => {
     renderAt('/');
+    expect(await screen.findByRole('button', { name: /iPhone 9/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open shopping copilot' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /shopping copilot/i })).toHaveAttribute('href', '/chat');
   });
 

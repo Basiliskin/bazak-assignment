@@ -58,6 +58,12 @@ export const ProductDetailsSchema = ProductCardSchema.extend({
 });
 export type ProductDetails = z.infer<typeof ProductDetailsSchema>;
 
+/** Query of GET /api/products (shop page grid): top-rated in-stock Product Cards. */
+export const ProductListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(30).default(10),
+});
+export type ProductListQuery = z.infer<typeof ProductListQuerySchema>;
+
 // ── Assistant tools (the LLM's structured query) ───────────────────────────────
 
 export const SearchProductsInputSchema = z

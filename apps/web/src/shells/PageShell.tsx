@@ -11,10 +11,16 @@ interface NewChatState {
 const isNewChatState = (state: unknown): state is NewChatState =>
   typeof state === 'object' && state !== null && (state as NewChatState).fresh === true;
 
-const newChatTarget = () => ({
-  to: `/chat/${crypto.randomUUID()}`,
+/**
+ * Where a Conversation opens as a full page. `fresh` lets a not-yet-saved id show an empty chat
+ * instead of "not found" — used by New chat and by the widget's ⤢ (its id may not be saved yet).
+ */
+export const chatLocation = (id: string) => ({
+  to: `/chat/${id}`,
   state: { fresh: true } satisfies NewChatState,
 });
+
+const newChatTarget = () => chatLocation(crypto.randomUUID());
 
 /** `/chat` → a new Conversation id in the URL right away, so the URL never changes mid-stream (D27). */
 export function NewChatRedirect() {

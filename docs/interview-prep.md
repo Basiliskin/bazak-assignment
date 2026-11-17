@@ -91,6 +91,12 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 ## /qa
 - Product titles go into system-role history notes. Isn't that prompt injection? → D35; `compact-history.ts` JSON-quotes every interpolated string, plus a system-prompt rule; why the role stayed `system` is D25. Test in `compact-history.spec.ts`
 - What happens when DummyJSON hangs rather than refuses? → the fetch aborts after 5 s → CatalogUnavailable, the stale copy if one exists (`dummyjson.catalog.ts`); before /qa, one hung load stalled every turn
-- What do your tests *not* catch? → reply wording, whether the Assumption is sensible, visual layout, real-model variance (1 run per case), the widget (not built), DB file deleted while running (see `docs/qa-report.md`)
+- What do your tests *not* catch? → reply wording, whether the Assumption is sensible, visual layout, real-model variance (1 run per case), DB file deleted while running (see `docs/qa-report.md`)
 - What happens with an invalid API key? → an SSE error part with Retry and the key masked in the log; but the message says "try again", which a retry can't fix (B2, deferred)
 - Why is AC5.3 (storage cleared) "manual"? → chats live on the server (ADR 0003), browser storage holds nothing; smoke-tested
+
+## /developer S7
+- Why a separate `topRated` instead of reusing `filterProducts`? → D37; `apps/api/src/catalog/domain/top-rated.ts` (the search pages by 4 and its rules belong to the Assistant; the shop grid is a different use case)
+- What exactly does the widget keep in localStorage, and what if it is corrupted, blocked or points to a deleted chat? → D38; `apps/web/src/lib/widget-state.ts` (zod-validated pointer; invalid → closed + new chat) + `shells/useWidgetState.ts` (try/catch); `ChatView fresh` turns a 404 into an empty chat
+- Why does ⤢ pass `{ fresh: true }`? → the widget's id may not be saved yet (opened, nothing sent); `chatLocation` in `shells/PageShell.tsx`
+- How much did the widget cost given the full page existed? → two shells + one list container; `ChatView`, `MessageBubble`, `ProductGroup` gained only a `layout` prop (D14 fallback plan held)

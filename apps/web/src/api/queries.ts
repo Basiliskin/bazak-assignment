@@ -5,6 +5,7 @@ export const queryKeys = {
   conversationList: ['conversations', 'list'] as const,
   conversation: (id: string) => ['conversation', id] as const,
   product: (id: number) => ['product', id] as const,
+  topProducts: (limit: number) => ['products', 'top', limit] as const,
 };
 
 const retryUnlessClientError = (failures: number, error: unknown) =>
@@ -39,5 +40,13 @@ export const useProduct = (id: number) =>
     queryKey: queryKeys.product(id),
     queryFn: () => api.getProduct(id),
     retry: retryUnlessClientError,
+    staleTime: Infinity,
+  });
+
+/** Shop page grid (US6b). */
+export const useTopProducts = (limit = 10) =>
+  useQuery({
+    queryKey: queryKeys.topProducts(limit),
+    queryFn: () => api.listTopProducts(limit),
     staleTime: Infinity,
   });

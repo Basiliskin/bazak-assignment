@@ -396,3 +396,23 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Built:** root `build` uses `--if-present` · `compact-history.ts` JSON-quotes labels, titles, keywords and off-catalog requests in system notes; the system prompt says quoted strings are data · `DummyJsonCatalog` fetch has `AbortSignal.timeout` (5 s default, `timeoutMs` option) · `ChatView` uses `isNotFound`, `toSummary` removed · `docs/dummyjson_products_openapi.yaml` un-ignored and committed.
 **Verified:** lint, typecheck and Prettier clean; tests api 105/105 (new: injection note test, hung-fetch timeout test), web 50/50, evals 22/22; `npm run build` ok; `npm run eval` 6/6 after the fixes.
 **Next step:** `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md`
+
+## 2026-11-17 19:20 : /developer S7 — Widget + shop page (D)
+
+**User input:**
+> /developer S7 Widget + shop page (D) from docs/architecture.md
+> agree to recomendations
+
+**Found before proposing:** `filterProducts` always pages by 4 (`PAGE_SIZE`), so the shop grid needs its own function.
+
+**Options offered:**
+- D37 Shop grid endpoint: (a) pure `topRated` + zod-validated `?limit` (rec.) / (b) `filterProducts` with a page-size argument / (c) browser calls DummyJSON directly.
+- D38 Widget pointer: (a) pure `parseWidgetState`/`serializeWidgetState` + `useWidgetState` with try/catch (rec.) / (b) `useSyncExternalStore` store with cross-tab sync / (c) URL hash.
+- D39 In-window list: (a) new `WidgetConversations` container reusing `ConversationList` (rec.) / (b) `ConversationSidebar` with widget flags.
+- Defaults stated: widget passes `fresh` (404 = empty chat); ⤢ → `/chat/<id>` with `{fresh}` and closes the widget; widget only on `/`; `layout` prop through `ChatView`/`MessageBubble`; 420×680 / full screen below `sm`; focus to composer on open, launcher on close; one `WidgetShell` component test + `/` route test.
+
+**Decision:** D37 (a), D38 (a), D39 (a), defaults accepted.
+**Built:** contracts `ProductListQuerySchema` · API `catalog/domain/top-rated.ts`, `CatalogService.topRated`, `GET /api/products` · web `lib/widget-state.ts`, `shells/useWidgetState.ts`, `shells/WidgetShell.tsx`, `conversations/WidgetConversations.tsx`, `ShopPage` (hero + top-rated grid + details popup + widget), `api.listTopProducts` + `useTopProducts`, `layout` prop on `ChatView`/`MessageBubble`, `chatLocation` exported from `PageShell`; `zod` added as a direct web dependency (was only hoisted).
+**Verified:** lint, typecheck and Prettier clean; tests api 111/111 (+3 `topRated`, +3 e2e), web 62/62 (+6 widget-state, +6 `WidgetShell`, `/` route test updated), evals 22/22; `npm run build` ok. Live in Chrome (gpt-6-luna): shop grid of real top-rated Products; ✦ → "a phone under $500" streamed into a carousel with Show more; reload → widget reopened on the same Conversation; ⤢ → `/chat/<id>` with the same group, pointer saved as closed; at the narrowest window Chrome allows (606 px) the window fills the screen with no horizontal scroll; no console errors.
+**Also updated:** `docs/qa-report.md` US6b row, readme-notes and interview-prep lines that said the widget was not built.
+**Next step:** `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md` (/qa already ran; widget is covered by its own tests)
