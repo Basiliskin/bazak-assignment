@@ -12,6 +12,8 @@ export interface Expectations {
   assumption?: boolean;
   /** R5: every new card is cheaper than the cheapest card in the previous reply (or none, explained). */
   cheaperThanPrevious?: boolean;
+  /** ADR 0004: true = at least one "You might also like" card; false = no Recommended Group at all. */
+  recommended?: boolean;
 }
 
 export interface CheckResult {
@@ -29,7 +31,11 @@ export interface CheckInput {
 }
 
 const result = (rule: string, pass: boolean, detail: string): CheckResult => ({ rule, pass, detail });
+const matchGroups = (message: Message) => message.productGroups.filter((g) => g.kind === 'match');
+const recommendedGroups = (message: Message) => message.productGroups.filter((g) => g.kind === 'recommended');
 const cardsOf = (message: Message): ProductCard[] => message.productGroups.flatMap((g) => g.products);
+/** R4/R5 are about what was searched for — "You might also like" is extra (ADR 0004). */
+const matchCardsOf = (message: Message): ProductCard[] => matchGroups(message).flatMap((g) => g.products);
 const ref = (c: ProductCard) => `#${c.id} $${c.price}`;
 const list = (items: string[]) => items.join(', ');
 
@@ -55,7 +61,7 @@ function checkInStock(cards: ProductCard[], byId: Map<number, ProductDetails>): 
 }
 
 function checkIntents(reply: Message, intents: readonly CategorySlug[]): CheckResult {
-  const groups = reply.productGroups;
+  const groups = matchGroups(reply);
   const problems: string[] = [];
   if (groups.length !== intents.length)
     problems.push(`${groups.length} group(s), expected ${intents.length}`);
@@ -100,8 +106,9 @@ function checkAssumption(reply: Message): CheckResult {
   return result('R2', true, `assumption: "${guessed.query.assumption}"`);
 }
 
-function checkCheaper(cards: ProductCard[], reply: Message, previous: Message | undefined): CheckResult {
-  const before = previous ? cardsOf(previous).map((c) => c.price) : [];
+function checkCheaper(reply: Message, previous: Message | undefined): CheckResult {
+  const cards = matchCardsOf(reply);
+  const before = previous ? matchCardsOf(previous).map((c) => c.price) : [];
   if (!before.length) return result('R5', false, 'no earlier cards to compare');
   const cheapest = Math.min(...before);
   if (!cards.length) {
@@ -115,7 +122,41 @@ function checkCheaper(cards: ProductCard[], reply: Message, previous: Message | 
     : result('R5', true, `all < $${cheapest} (cheapest before)`);
 }
 
-/** Pure: checks one Assistant reply against the rules. R1, R7, R9 and a non-empty reply are checked on every case. */
+/** R10: a Recommended Group repeats no match, shows only in-stock Products and keeps its search's price range. */
+function checkRecommendedRules(reply: Message, byId: Map<number, ProductDetails>): CheckResult {
+  const groups = recommendedGroups(reply);
+  if (!groups.length) return result('R10', true, 'no Recommended Group');
+  const matched = new Set(matchCardsOf(reply).map((c) => c.id));
+  const problems = groups.flatMap((g) =>
+    g.products.flatMap((c) => {
+      const { minPrice, maxPrice } = g.query;
+      return [
+        matched.has(c.id) ? `#${c.id} repeats a match` : null,
+        byId.get(c.id)?.stock === 0 ? `#${c.id} out of stock` : null,
+        maxPrice !== null && c.price > maxPrice ? `#${c.id} $${c.price} > $${maxPrice}` : null,
+        minPrice !== null && c.price < minPrice ? `#${c.id} $${c.price} < $${minPrice}` : null,
+      ].filter((x): x is string => x !== null);
+    }),
+  );
+  const shown = groups.reduce((n, g) => n + g.products.length, 0);
+  return problems.length
+    ? result('R10', false, list(problems))
+    : result('R10', true, `${shown} recommended, none repeat a match`);
+}
+
+function checkRecommendedPresence(reply: Message, wanted: boolean): CheckResult {
+  const shown = recommendedGroups(reply).flatMap((g) => g.products);
+  if (wanted) {
+    return shown.length
+      ? result('similar', true, `${shown.length} recommended: ${list(shown.map((c) => c.title))}`)
+      : result('similar', false, 'no "You might also like" cards');
+  }
+  return shown.length
+    ? result('similar', false, `unexpected recommendations: ${list(shown.map((c) => c.title))}`)
+    : result('similar', true, 'no Recommended Group');
+}
+
+/** Pure: checks one Assistant reply against the rules. R1, R7, R9, R10 and a non-empty reply are checked on every case. */
 export function checkReply({ expect, reply, previous, catalog }: CheckInput): CheckResult[] {
   const byId = new Map(catalog.map((p) => [p.id, p]));
   const cards = cardsOf(reply);
@@ -124,11 +165,13 @@ export function checkReply({ expect, reply, previous, catalog }: CheckInput): Ch
     checkGroupSize(reply),
     checkInStock(cards, byId),
     reply.text.trim() ? result('reply', true, 'has text') : result('reply', false, 'empty reply text'),
+    checkRecommendedRules(reply, byId),
   ];
   if (expect.intents) results.push(checkIntents(reply, expect.intents));
   if (expect.priceLimits) results.push(checkPriceLimits(cards, expect.priceLimits));
   if (expect.offCatalog) results.push(checkOffCatalog(reply));
   if (expect.assumption) results.push(checkAssumption(reply));
-  if (expect.cheaperThanPrevious) results.push(checkCheaper(cards, reply, previous));
+  if (expect.cheaperThanPrevious) results.push(checkCheaper(reply, previous));
+  if (expect.recommended !== undefined) results.push(checkRecommendedPresence(reply, expect.recommended));
   return results;
 }

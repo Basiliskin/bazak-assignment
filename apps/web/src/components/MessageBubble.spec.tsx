@@ -2,10 +2,11 @@ import type { ProductGroup } from '@app/contracts';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ChatItem } from '../chat/chat-types';
-import { phoneGroup } from '../test/fixtures';
+import { phoneGroup, similarGroup } from '../test/fixtures';
 import { MessageBubble } from './MessageBubble';
 
 const coolGroup: ProductGroup = {
+  kind: 'match',
   label: 'Cool picks under $30',
   query: {
     ...phoneGroup.query,
@@ -97,5 +98,27 @@ describe('MessageBubble with Product Groups', () => {
   it('disables "Show more" while a reply streams', () => {
     renderBubble({ busy: true });
     expect(screen.getByRole('button', { name: 'Show more' })).toBeDisabled();
+  });
+});
+
+describe('MessageBubble with a Recommended Group (ADR 0004)', () => {
+  const withSimilar: ChatItem = { ...item, productGroups: [phoneGroup, { ...similarGroup, total: 9 }] };
+
+  it('shows "You might also like" with its cards, but no range, "more match" or Show more', () => {
+    render(<MessageBubble item={withSimilar} onOpenProduct={vi.fn()} onShowMore={vi.fn()} />);
+    const similar = screen.getByRole('region', { name: 'You might also like · Phones under $500' });
+    expect(within(similar).getByRole('heading', { name: /You might also like/ })).toBeInTheDocument();
+    expect(similar).toHaveTextContent('Similar to Phones under $500');
+    expect(within(similar).getByRole('img', { name: 'Phone Case' })).toBeInTheDocument();
+    expect(similar).not.toHaveTextContent(/of 9|more match/);
+    expect(within(similar).queryByRole('button', { name: 'Show more' })).toBeNull();
+  });
+
+  it('opens details from a recommended card like any other card', async () => {
+    const onOpenProduct = vi.fn();
+    render(<MessageBubble item={withSimilar} onOpenProduct={onOpenProduct} onShowMore={vi.fn()} />);
+    const similar = screen.getByRole('region', { name: 'You might also like · Phones under $500' });
+    await userEvent.click(within(similar).getByRole('button', { name: /Phone Case/ }));
+    expect(onOpenProduct).toHaveBeenCalledWith(9);
   });
 });

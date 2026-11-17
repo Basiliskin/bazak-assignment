@@ -14,6 +14,7 @@ describe('parseConfig', () => {
         port: 3001,
         databasePath: '/repo/data/app.db',
         dummyJsonUrl: 'https://dummyjson.com',
+        modelCacheDir: '/repo/data/models',
       },
     });
   });

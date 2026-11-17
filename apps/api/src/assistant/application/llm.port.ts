@@ -1,9 +1,9 @@
-import type { ProductGroup, ReportOffCatalogInput, SearchProductsInput } from '@app/contracts';
+import type { ReportOffCatalogInput, SearchProductsInput, SearchProductsOutput } from '@app/contracts';
 import type { HistoryMessage } from '../domain/history-message.js';
 
 /** Tool handlers the application gives the LLM (D24). The adapter turns them into SDK tools. */
 export interface TurnTools {
-  searchProducts(query: SearchProductsInput): Promise<ProductGroup>;
+  searchProducts(query: SearchProductsInput): Promise<SearchProductsOutput>;
   reportOffCatalog(input: ReportOffCatalogInput): Promise<{ acknowledged: true }>;
 }
 

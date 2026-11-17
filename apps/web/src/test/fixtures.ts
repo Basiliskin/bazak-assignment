@@ -1,11 +1,13 @@
 import type { Message, ProductGroup } from '@app/contracts';
 
 export const phoneGroup: ProductGroup = {
+  kind: 'match',
   label: 'Phones under $500',
   query: {
     label: 'Phones under $500',
     category: 'smartphones',
     keywords: [],
+    semanticQuery: 'smartphones and mobile phones',
     minPrice: null,
     maxPrice: 500,
     sortBy: 'relevance',
@@ -26,6 +28,26 @@ export const phoneGroup: ProductGroup = {
     },
   ],
   total: 7,
+};
+
+/** A Recommended Group for phoneGroup's Search Intent (ADR 0004). */
+export const similarGroup: ProductGroup = {
+  kind: 'recommended',
+  label: 'You might also like · Phones under $500',
+  query: phoneGroup.query,
+  products: [
+    {
+      id: 9,
+      title: 'Phone Case',
+      description: 'Protective case',
+      price: 15,
+      discountPercentage: 0,
+      rating: 4.2,
+      thumbnail: 'https://cdn.example/9.png',
+      category: 'mobile-accessories',
+    },
+  ],
+  total: 1,
 };
 
 export const userMessage = (id: string, text: string): Message => ({

@@ -12,7 +12,7 @@ import { compactHistory } from '../domain/compact-history.js';
 import { resolvePagedQuery } from '../domain/resolve-paged-query.js';
 import { buildSystemPrompt } from '../domain/system-prompt.js';
 import { toAssistantMessage } from '../domain/to-assistant-message.js';
-import { toProductGroup } from '../domain/to-product-group.js';
+import { shouldRecommend, toProductGroup, toRecommendedGroup } from '../domain/to-product-group.js';
 import type { ChatStream, LlmPort, TurnTools } from './llm.port.js';
 
 /** Time and ids are injected so every step stays deterministic in tests. */
@@ -24,29 +24,32 @@ export interface TurnEnvironment {
 const SYSTEM_PROMPT = buildSystemPrompt(CATEGORY_SLUGS);
 
 /**
- * Collects tool results of one turn. Groups keep tool-call order even when parallel calls finish out of order.
- * A "Show more" page reuses the earlier group's search (D31), so paging doesn't depend on the model.
+ * Collects tool results of one turn. Groups keep tool-call order even when parallel calls finish out of order;
+ * a Recommended Group follows its match group (ADR 0004). A "Show more" page reuses the earlier group's
+ * search (D31), so paging doesn't depend on the model.
  */
 function createTurnTools(catalog: CatalogService, earlier: readonly Message[]) {
-  const groups: (ProductGroup | null)[] = [];
+  const slots: ProductGroup[][] = [];
   const offCatalog: ReportOffCatalogInput[] = [];
   const tools: TurnTools = {
     async searchProducts(query) {
-      const slot = groups.push(null) - 1;
+      const slot = slots.push([]) - 1;
       const resolved = resolvePagedQuery(query, earlier);
-      const group = toProductGroup(resolved, await catalog.search(resolved));
-      groups[slot] = group;
-      return group;
+      const recommend = shouldRecommend(resolved) ? resolved.semanticQuery : null;
+      const result = await catalog.search(resolved, { recommend });
+      const output = {
+        match: toProductGroup(resolved, result),
+        recommended: toRecommendedGroup(resolved, result.recommended),
+      };
+      slots[slot] = output.recommended ? [output.match, output.recommended] : [output.match];
+      return output;
     },
     async reportOffCatalog(input) {
       offCatalog.push(input);
       return { acknowledged: true };
     },
   };
-  const results = () => ({
-    productGroups: groups.filter((g): g is ProductGroup => g !== null),
-    offCatalog: [...offCatalog],
-  });
+  const results = () => ({ productGroups: slots.flat(), offCatalog: [...offCatalog] });
   return { tools, results };
 }
 

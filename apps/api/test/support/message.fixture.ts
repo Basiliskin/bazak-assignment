@@ -1,11 +1,13 @@
 import type { Message, ProductGroup } from '@app/contracts';
 
 export const group = (over: Partial<ProductGroup> = {}): ProductGroup => ({
+  kind: 'match',
   label: 'Phones under $500',
   query: {
     label: 'Phones under $500',
     category: 'smartphones',
     keywords: [],
+    semanticQuery: 'smartphones and mobile phones',
     minPrice: null,
     maxPrice: 500,
     sortBy: 'relevance',

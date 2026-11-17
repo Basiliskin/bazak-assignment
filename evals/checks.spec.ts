@@ -42,6 +42,7 @@ const query = (over: Partial<SearchProductsInput> = {}): SearchProductsInput => 
   label: 'Phones',
   category: 'smartphones',
   keywords: [],
+  semanticQuery: 'smartphones',
   minPrice: null,
   maxPrice: null,
   sortBy: 'relevance',
@@ -52,6 +53,7 @@ const query = (over: Partial<SearchProductsInput> = {}): SearchProductsInput => 
 });
 
 const group = (ids: number[], q: Partial<SearchProductsInput> = {}, total = ids.length): ProductGroup => ({
+  kind: 'match',
   label: q.label ?? 'Phones',
   query: query(q),
   products: ids.map(card),
@@ -71,13 +73,14 @@ const reply = (over: Partial<Message> = {}): Message => ({
 const byRule = (results: CheckResult[], rule: string) => results.find((r) => r.rule === rule);
 
 describe('checkReply — rules checked on every case', () => {
-  it('passes R1, R7, R9 and reply for real, in-stock cards with text', () => {
+  it('passes R1, R7, R9, reply and R10 for real, in-stock cards with text', () => {
     const results = checkReply({ expect: {}, reply: reply({ productGroups: [group([1, 2])] }), catalog });
     expect(results.map((r) => [r.rule, r.pass])).toEqual([
       ['R1', true],
       ['R7', true],
       ['R9', true],
       ['reply', true],
+      ['R10', true],
     ]);
   });
 
@@ -236,5 +239,58 @@ describe('checkReply — expectations per case', () => {
   it('R5 fails when there was no earlier reply with cards', () => {
     const results = checkReply({ expect: { cheaperThanPrevious: true }, reply: reply(), catalog });
     expect(byRule(results, 'R5')).toEqual({ rule: 'R5', pass: false, detail: 'no earlier cards to compare' });
+  });
+});
+
+describe('checkReply — Recommended Groups (ADR 0004)', () => {
+  const similar = (ids: number[], q: Partial<SearchProductsInput> = {}): ProductGroup => ({
+    ...group(ids, q),
+    kind: 'recommended',
+    label: 'You might also like · Phones',
+  });
+
+  it('R10 passes vacuously without a Recommended Group, and for one that repeats nothing', () => {
+    expect(
+      byRule(checkReply({ expect: {}, reply: reply({ productGroups: [group([2])] }), catalog }), 'R10')?.pass,
+    ).toBe(true);
+    const ok = reply({ productGroups: [group([2], { maxPrice: 500 }), similar([3], { maxPrice: 500 })] });
+    expect(byRule(checkReply({ expect: {}, reply: ok, catalog }), 'R10')?.pass).toBe(true);
+  });
+
+  it('R10 fails when a recommendation repeats a match, is out of stock or breaks the price limit', () => {
+    const bad = reply({
+      productGroups: [group([2], { maxPrice: 400 }), similar([2, 5, 1], { maxPrice: 400 })],
+    });
+    const r10 = byRule(checkReply({ expect: {}, reply: bad, catalog }), 'R10');
+    expect(r10?.pass).toBe(false);
+    expect(r10?.detail).toContain('#2 repeats a match');
+    expect(r10?.detail).toContain('#5 out of stock');
+    expect(r10?.detail).toContain('#1 $549 > $400');
+  });
+
+  it('R4 counts match groups only — a Recommended Group is not an extra intent', () => {
+    const r = reply({ productGroups: [group([2]), similar([3])] });
+    expect(byRule(checkReply({ expect: { intents: ['smartphones'] }, reply: r, catalog }), 'R4')?.pass).toBe(
+      true,
+    );
+  });
+
+  it('R5 compares match cards only', () => {
+    const previous = reply({ productGroups: [group([2]), similar([3])] }); // cheapest match $399, similar $149
+    const r = reply({ productGroups: [group([3])] }); // $149 < $399
+    expect(
+      byRule(checkReply({ expect: { cheaperThanPrevious: true }, reply: r, previous, catalog }), 'R5')?.pass,
+    ).toBe(true);
+  });
+
+  it('"similar" expects cards when wanted and none when not (off-catalog)', () => {
+    const withSimilar = reply({ productGroups: [group([2]), similar([3])] });
+    const without = reply({ productGroups: [group([2])] });
+    const rule = (r: Message, recommended: boolean) =>
+      byRule(checkReply({ expect: { recommended }, reply: r, catalog }), 'similar')?.pass;
+    expect(rule(withSimilar, true)).toBe(true);
+    expect(rule(without, true)).toBe(false);
+    expect(rule(without, false)).toBe(true);
+    expect(rule(withSimilar, false)).toBe(false);
   });
 });

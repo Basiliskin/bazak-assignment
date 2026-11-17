@@ -27,6 +27,19 @@ describe('compactHistory', () => {
     ]);
   });
 
+  it('notes a Recommended Group as similar, not exact, matches (ADR 0004)', () => {
+    const rec = group({ kind: 'recommended', label: 'You might also like · Phones under $500', total: 1 });
+    const note = compactHistory([
+      message({ id: 'a', role: 'assistant', text: 'x', productGroups: [rec] }),
+    ])[1];
+    expect(note).toEqual({
+      role: 'note',
+      text:
+        'Also shown below it — "You might also like · Phones under $500" (similar Products, not exact matches; ' +
+        'added by the system): #1 "iPhone 9" $499',
+    });
+  });
+
   it('never puts Product notes inside assistant text (the model would copy them into replies)', () => {
     const a = message({ id: 'a', role: 'assistant', text: 'Phones.', productGroups: [group()] });
     expect(compactHistory([a]).find((h) => h.role === 'assistant')?.text).toBe('Phones.');

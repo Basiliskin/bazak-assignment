@@ -113,3 +113,10 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - What happens if the embedding model fails to download or load? → D44.
 - Why does the Recommended Group ignore category but keep the price filter? → architecture.md `rankBySimilarity`.
 - Is a local embedding model within "gpt-6-luna only"? → ADR 0004 assumption.
+
+## /developer S8
+- Why exclude only the shown page from recommendations, not every match? → D50 (beach: 190 matches left nothing).
+- Why were recommendations after an off-catalog report allowed after all? → D49 (tool-call order; live eval result).
+- How do old saved conversations survive the new `kind`/`semanticQuery` fields? → D46, lenient stored schema.
+- What happens on the first chat right after startup, before the model is loaded? → D44/D47, match only.
+- Why is the recommendation built in code instead of a second tool the model calls? → D42, ADR 0004.

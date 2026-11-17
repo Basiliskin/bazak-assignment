@@ -67,6 +67,20 @@ describe('SqliteConversationRepository', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('skipped 2'));
   });
 
+  it('still loads Messages saved before S8, without kind or semanticQuery (D46)', async () => {
+    await repo.save(conversation('c1', '2026-11-17T10:00:00.000Z'));
+    const { kind: _kind, query, ...oldGroup } = group();
+    const { semanticQuery: _sq, ...oldQuery } = query;
+    const old = message({ id: 'c1-a', role: 'assistant', productGroups: [] });
+    const payload = JSON.stringify({ ...old, productGroups: [{ ...oldGroup, query: oldQuery }] });
+    db.prepare(`UPDATE messages SET payload_json = ? WHERE id = 'c1-a'`).run(payload);
+
+    const loaded = (await repo.get('c1'))?.messages.find((m) => m.id === 'c1-a');
+    expect(loaded?.productGroups[0]?.kind).toBe('match');
+    expect(loaded?.productGroups[0]?.query.semanticQuery).toBe('');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('deletes a Conversation with its Messages (AC6.4)', async () => {
     await repo.save(conversation('c1', '2026-11-17T10:00:00.000Z'));
     expect(await repo.delete('c1')).toBe(true);

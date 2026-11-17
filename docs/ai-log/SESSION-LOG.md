@@ -489,3 +489,21 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D43 (a), D44 (a), D45 (a), defaults accepted.
 **Artifacts:** `docs/adr/0004-local-embeddings-recommended-group.md`, ADR 0002 status note, `docs/architecture.md` (D40–D45, embedding facts, context diagram, folder tree, tool table, `rankBySimilarity`, query behaviour, eval row, slice S8), `docs/requirements.md` (R10, AC3.10), `GLOSSARY.md` (Recommended Group).
 **Next step:** `/developer S8 Recommended Group (RAG) from docs/architecture.md and ADR 0004`
+
+## 2026-11-17 17:40 : /developer S8 — Recommended Group (RAG)
+
+**User input:**
+> /developer S8 Recommended Group (RAG) from docs/architecture.md and ADR 0004 — contracts (semanticQuery, kind, {match, recommended}), pure toEmbeddingText + rankBySimilarity (0.35, exclude all match ids, price + stock filters), EmbeddingPort + VectorIndexPort with local-embedding and in-memory adapters (background load, match-only fallback), prompt + history notes, "You might also like" in the web, eval R10 + beach case
+> agree to recomendations
+> agree to recomendations
+
+**Found before proposing:** stored Messages are zod-validated on read (invalid rows skipped) → new required fields would drop every existing chat; stored groups reach the web one per tool part; eval R4/R5 count every group.
+**Options offered:**
+- D46 Pre-S8 Messages: (a) read defaults, lenient stored schema (rec.) / (b) SQLite migration / (c) nothing.
+- D47 Index sync: (a) RecommendationService re-embeds in background on a new catalog copy, warm-up on bootstrap (rec.) / (b) onRefresh callback in DummyJsonCatalog / (c) synchronous re-embed.
+- D48 Web shapes: (a) `toChatItems` accepts both (rec.) / (b) re-pair stored groups.
+- After the first live eval (5/7): D49 off-catalog recommendations: (a) allow, threshold keeps junk out (rec.) / (b) key on "Instead:" label / (c) keep order-dependent rule. D50 exclusions: (a) shown page only (rec.) / (b) all match ids / (c) rank unfiltered matches by similarity.
+**Decision:** D46–D50 all (a).
+**Built:** contracts `semanticQuery` (strict tool schema, lenient stored schema), `kind`, `SearchProductsOutputSchema`; catalog `rankBySimilarity` + `cosine` + `toEmbeddingText` (pure), `EmbeddingPort`, `VectorIndexPort`, `RecommendationService`, `InMemoryVectorIndex`, `LocalEmbedding` (`@huggingface/transformers@4.3.2`, lazy import, `data/models/`), `MODEL_CACHE_DIR` config, warm-up on bootstrap, `CatalogService.search(query, { recommend })`; assistant `toRecommendedGroup`, `shouldRecommend`, tool output `{match, recommended}`, history note "Also shown below it…", paging ignores recommended groups, prompt rules for `semanticQuery`; web `toChatItems` dual shape, pure `groupHeader`, ✨ "You might also like" header without paging; evals R10 on every case, `similar` expectation, `beach` case, warm-up before cases, R4/R5 on match groups.
+**Verified:** lint, typecheck, Prettier clean (README draft excluded); tests api 144, web 68, evals 27; build ok; real `data/app.db` 26/26 Messages load (D46); live eval 5/7 → fixes D49/D50 → **7/7**. Not done: browser smoke test of the new heading (covered by component tests; chrome-bridge MCP failed to connect this session).
+**Next step:** `/qa re-verify after S8 (RAG): suites, live eval, smoke test "You might also like" in the browser, audit the new catalog ports`

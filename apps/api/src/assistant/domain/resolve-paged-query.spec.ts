@@ -37,6 +37,15 @@ describe('resolvePagedQuery', () => {
     expect(resolvePagedQuery(fresh, history)).toBe(fresh);
   });
 
+  it('ignores Recommended Groups, even with the same label', () => {
+    const recommended = group({ kind: 'recommended', query: { ...page1, sortBy: 'rating-desc' } });
+    const withRec = [
+      ...history,
+      message({ id: 'a2', role: 'assistant', text: 'x', productGroups: [recommended] }),
+    ];
+    expect(resolvePagedQuery({ ...page1, offset: 4 }, withRec)).toEqual({ ...page1, offset: 4 });
+  });
+
   it('leaves a paged search with an unknown label alone', () => {
     const other = { ...page1, label: 'Cheap laptops', category: 'laptops' as const, offset: 4 };
     expect(resolvePagedQuery(other, history)).toBe(other);

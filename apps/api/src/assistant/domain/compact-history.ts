@@ -25,10 +25,14 @@ const describeSearch = ({ query: q }: ProductGroup): string =>
 /** Catalog titles, model labels and Shopper text are quoted as JSON strings: they stay data inside a system note. */
 const quote = (text: string): string => JSON.stringify(text);
 
+const productList = (g: ProductGroup): string =>
+  g.products.map((p) => `#${p.id} ${quote(p.title)} $${p.price}`).join(', ') || 'none';
+
+/** Recommended Groups are marked as similar, so "cheaper ones" is read against the matches (ADR 0004). */
 const groupNote = (g: ProductGroup): string =>
-  `Shown in the reply above — ${quote(g.label)} (${range(g)}; search: ${describeSearch(g)}): ${
-    g.products.map((p) => `#${p.id} ${quote(p.title)} $${p.price}`).join(', ') || 'none'
-  }`;
+  g.kind === 'recommended'
+    ? `Also shown below it — ${quote(g.label)} (similar Products, not exact matches; added by the system): ${productList(g)}`
+    : `Shown in the reply above — ${quote(g.label)} (${range(g)}; search: ${describeSearch(g)}): ${productList(g)}`;
 
 const toHistory = (m: Message): HistoryMessage[] => [
   ...(m.text.trim() ? [{ role: m.role, text: m.text.trim() }] : []),

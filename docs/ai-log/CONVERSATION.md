@@ -1472,3 +1472,596 @@
 > <status>failed</status>
 > <summary>Background command "Start dev servers in background" failed with exit code 1</summary>
 > </task-notification>
+
+### 2026-11-17T14:02:00.041Z : /developer — assistant
+
+> S7 is done and committed as `dfdebf2`. The home page `/` is now a real shop page, and the copilot opens from a floating ✦ button. Tests, lint, typecheck and build all pass, and I tried it live in Chrome with the real model.
+> 
+> **What's built** (your picks: D37, D38 and D39 as recommended):
+> - **API:** new `GET /api/products?limit=10` returns the top-rated Products that are in stock. The limit is checked (1–30, default 10).
+> - **Shop page:** a hero section, a grid of 10 top-rated Products, and the existing details popup when you click a card.
+> - **Widget:**
+>   - **Window:** 420×680 on desktop, full screen on phones, Product Groups shown as a carousel.
+>   - **Header buttons:** ☰ shows past Conversations, ＋ starts a new chat, ⤢ opens the same Conversation as a full page, ✕ closes.
+>   - **After a refresh:** it reopens on the same Conversation if it was open. Only whether it's open and which Conversation it's on are saved in `localStorage`. If that's missing, broken or blocked, the widget starts closed on a new chat.
+> - **Shared code:** the chat view gained only a `layout` prop (`grid` | `carousel`). Everything else is reused from the full page.
+> - I added `zod` as a direct dependency of `apps/web`. It was being used there before this slice but was only available by accident through the root install.
+> 
+> **Checks:**
+> - Lint, typecheck and Prettier are clean, and `npm run build` succeeds.
+> - Tests: api 111/111, web 62/62, evals 22/22. New tests cover the top-rated function, the endpoint, the saved widget state, and 6 widget cases (open/close, refresh, switching chats, new chat, ⤢, corrupted storage).
+> - **Live in Chrome:**
+>   - The grid showed real top-rated Products.
+>   - "a phone under $500" streamed into a carousel with Show more.
+>   - After a refresh the widget reopened on the same chat.
+>   - ⤢ opened `/chat/<id>` with the same Product Group.
+>   - No console errors.
+> - Chrome wouldn't make the window narrower than 606 px, so the true phone width (390 px) wasn't seen live. At 606 px, which is still below the phone breakpoint, the window filled the screen with no sideways scroll.
+> 
+> **Docs:** the earlier /qa notes said the widget wasn't built; I corrected them in `docs/qa-report.md`, `docs/readme-notes.md` and `docs/interview-prep.md`. The architecture doc, session log and interview-prep questions are updated too.
+> 
+> All slices are done and /qa has already run, so the README is next:
+> 
+> ➡️ Next step: `/readme`
+> Prompt to paste:
+> `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md`
+
+### 2026-11-17T14:02:14.209Z : /readme — user
+
+> /readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md
+
+### 2026-11-17T14:02:57.105Z : /readme — assistant
+
+> All suites are green on the current tree: api 111, web 62, evals 22. Lint, typecheck and `npm run build` pass too. (The IDE diagnostics that just appeared are out of date; `tsc --noEmit` is clean.) There's no `README.md` yet. I'll go through it one section at a time, as the skill requires.
+> 
+> Two things in the sources don't match the code, and I'll write the README to match the code:
+> - ADR 0003 says the active conversation lives in `/c/:id`. The real route is `/chat/:id`.
+> - The qa-report test counts (105/50) are from before S7. The real counts are now 111/62/22.
+> 
+> ## Section 1 — Setup and run: key points
+> 
+> | Point | Source / verified |
+> |---|---|
+> | Node ≥ 22.12 (`engines`); I built it on Node 26 | `package.json`, `node -v` = 26.10 |
+> | `npm install` → `cp .env.example .env` → set `OPENAI_KEY` (`OPENAI_MODEL=***REDACTED***`, `PORT=3001`) | `.env.example` |
+> | The API refuses to start without a key or with any model other than `***REDACTED***` | `app-config.ts:11` |
+> | `npm run dev` starts the web app at http://localhost:5173 (shop page + ✦ widget; full page at `/chat`) and the API at http://localhost:3001/api | readme-notes S0/S7 |
+> | `npm test` runs offline: no key, no network (MockLanguageModel, fake catalog, in-memory SQLite) | ✅ ran: 111 / 62 / 22 |
+> | `npm run eval` runs 6 live cases against ***REDACTED*** and real DummyJSON. It takes about 35 s, costs a few cents, rewrites the table in `docs/qa-report.md` and exits 1 on any failure | readme-notes S6 (I didn't re-run it now because it costs money; the last run was 6/6) |
+> | `npm run lint`, `npm run typecheck`, `npm run build` | ✅ all pass |
+> | Data lives in `data/app.db` (SQLite, gitignored), created on first start. Delete the file to reset | readme-notes S2 |
+> 
+> **Is this list right?** Anything to add or drop? For example, should I mention the Vite chunk-size warning in the build, or leave it for Known limitations?
+> 
+> One more question that saves a round trip on every later section: which style do you prefer overall, **(a) terse bullets** or **(b) short first-person prose**? My recommendation is bullets for Setup and prose for the five "why" sections (architecture, retrieval, state, evaluation, limitations), since the interviewer will read those as your reasoning.
+
+### 2026-11-17T14:04:34.793Z : /readme — user
+
+> agree
+
+### 2026-11-17T14:04:54.495Z : /readme — assistant
+
+> ## Section 1 — Setup and run: draft (bullets, as agreed)
+> 
+> ```markdown
+> # AI Shopping Copilot
+> 
+> A chat assistant that turns a shopping request into a search over the DummyJSON catalog and shows the real Products as cards inside the chat. NestJS API + React web app, TypeScript throughout, model `***REDACTED***`.
+> 
+> ## Setup and run
+> 
+> Requires Node ≥ 22.12 (I built it on Node 26).
+> 
+>     npm install
+>     cp .env.example .env        # then set OPENAI_KEY
+>     npm run dev
+> 
+> - Web: http://localhost:5173. The shop page with the copilot as a floating ✦ widget; ⤢ opens the same chat full page at `/chat/:id`.
+> - API: http://localhost:3001/api.
+> - The API won't start without `OPENAI_KEY`, or with any model other than `***REDACTED***`.
+> - Conversations are stored in `data/app.db` (SQLite, created on first start). Delete the file to reset.
+> 
+> | Command | What it does |
+> |---|---|
+> | `npm test` | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB). |
+> | `npm run eval` | 6 live cases against `***REDACTED***` and the real catalog (~35 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
+> | `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build. |
+> ```
+> 
+> **Approve, or edit?** (A prose version would just be this as two paragraphs, which is harder to scan for commands, so I don't recommend it.)
+> 
+> ---
+> 
+> ## Section 2 — Architecture & framework choice: key points
+> 
+> **Picked:** Vercel AI SDK v7 (ADR 0001)
+> - `streamText` + `tool()` + `stepCountIs(3)` in the API, with the last step forced to text only. The UI message stream (SSE) is piped through NestJS, and `useChat` handles it in React.
+> - It covers the three hard parts: the tool loop, token streaming with tool results interleaved, and client chat state. I verified it live: 2 parallel tool calls + streaming in 3.5 s.
+> - It also works around a ***REDACTED*** quirk: function tools are rejected on `/chat/completions`, and the SDK uses the Responses API.
+> - SDK types stay at the edges (`ai-sdk.llm.ts`, `web/chat/`). We store our own `Message` shape, so switching frameworks touches two adapters.
+> 
+> **Rejected (assignment-specific):**
+> 1. **From scratch with the `openai` SDK.** About 200 extra lines (tool loop, stream protocol, client parser), roughly an hour of a 3 h budget, with nothing the Shopper would see.
+> 2. **LangChain / Mastra.** Mastra brings its own server and storage, which compete with NestJS. LangChain adds layers of abstraction around a single tool loop.
+> 3. **assistant-ui / CopilotKit.** They own the whole UI (and CopilotKit also a runtime backend), which hides exactly the streaming and persistence logic the README has to explain.
+> 4. **Decisions API as an intent classifier** (D2 c). It needed undocumented fields (3 failed attempts), and a classifier would still need a second call to reply.
+> 
+> **Structure:** npm workspaces `apps/api`, `apps/web`, `packages/contracts` (zod schemas shared by both). Nest modules `catalog`, `conversations` and `assistant` each have domain/application/infrastructure/presentation layers, and external systems sit behind ports. Functional core, imperative shell: all logic is in pure functions tested without mocks. ESM + Vitest, because Jest needs an experimental flag for the ESM-only AI SDK v7 / Nest 12.
+> 
+> **Confirm or correct?** In particular:
+> - Should rejected alternative #4 (Decisions API) go in, or is three enough?
+> - Should I include the context diagram from `architecture.md` (one mermaid flowchart), or leave it out to keep the README short?
+
+### 2026-11-17T14:05:45.045Z : /readme — user
+
+> Should reject
+> Should I include the context diagram from architecture.md
+
+### 2026-11-17T14:06:11.617Z : /readme — assistant
+
+> ## Section 2 — Architecture & framework choice: two drafts
+> 
+> Both drafts start with the same diagram:
+> 
+> ````markdown
+> ```mermaid
+> flowchart LR
+>   Shopper((Shopper)) --> Web[apps/web<br/>React + useChat]
+>   Web -- "POST /api/chat (SSE)<br/>GET /api/conversations" --> API[apps/api<br/>NestJS]
+>   API -- "streamText + tools" --> LLM[(OpenAI<br/>***REDACTED***)]
+>   API -- "GET /products?limit=0<br/>cached 10 min" --> DJ[(DummyJSON)]
+>   API --> DB[(SQLite<br/>data/app.db)]
+> ```
+> ````
+> 
+> ### (a) Terse bullets
+> 
+> ```markdown
+> ## Architecture & framework choice
+> 
+> **Picked: Vercel AI SDK v7** (ADR 0001)
+> - API: `streamText` with two tools, at most 3 steps, last step text only. The UI message stream (SSE) is piped through a NestJS controller.
+> - Web: `useChat` renders text deltas and tool results as they arrive.
+> - ***REDACTED*** rejects function tools on `/chat/completions`; the SDK uses the Responses API, which works.
+> - SDK types stay in two adapter folders. The DB stores my own `Message` shape, so switching frameworks touches only those adapters.
+> 
+> **Rejected**
+> - From scratch (`openai` SDK): ~200 lines of tool loop, stream protocol and client parser, about an hour of a 3 h budget, with nothing the user would see.
+> - LangChain / Mastra: Mastra brings its own server and storage, which compete with NestJS. LangChain adds layers around a single tool loop.
+> - assistant-ui / CopilotKit: they own the UI (and CopilotKit a backend runtime), which hides the streaming and persistence logic I need to explain.
+> - Decisions API as an intent classifier: needed undocumented fields (3 failed attempts), and still needs a second call to write the reply.
+> 
+> **Structure**: npm workspaces `apps/api`, `apps/web`, `packages/contracts` (shared zod schemas). Nest modules `catalog`, `conversations`, `assistant`, each split into domain / application / infrastructure / presentation. Business logic is in pure functions; services only do I/O.
+> ```
+> 
+> ### (b) Short prose (recommended)
+> 
+> ```markdown
+> ## Architecture & framework choice
+> 
+> I used the **Vercel AI SDK v7** (ADR 0001). The assignment has three hard parts: a tool-calling loop, token streaming with tool results mixed in, and chat state in the browser. The SDK covers all three. `streamText` runs the loop in the API (two tools, at most 3 steps, last step text only), a NestJS controller pipes its UI message stream (SSE), and `useChat` renders it. It also solved a ***REDACTED*** quirk: the model rejects function tools on `/chat/completions`, and the SDK uses the Responses API. SDK types stay in two adapter folders. The database stores my own `Message` shape, so switching frameworks would touch only those adapters.
+> 
+> Alternatives I rejected:
+> - **From scratch with the `openai` SDK.** About 200 extra lines for the tool loop, stream protocol and client parser. That's an hour of a 3-hour budget with nothing the user would see.
+> - **LangChain / Mastra.** Mastra brings its own server and storage, which would compete with NestJS. LangChain adds layers of abstraction around what is a single tool loop.
+> - **assistant-ui / CopilotKit.** They own the whole chat UI (and CopilotKit a backend runtime), which hides exactly the streaming and persistence logic this README has to explain.
+> - **The Decisions API as an intent classifier.** It needed fields that weren't documented (three failed attempts), and a classifier still needs a second call to write the reply.
+> 
+> The repo is npm workspaces: `apps/api`, `apps/web`, and `packages/contracts` for the zod schemas both sides share. The API has three Nest modules (`catalog`, `conversations`, `assistant`), each split into domain / application / infrastructure / presentation, with OpenAI, DummyJSON and SQLite behind ports. Business logic lives in pure functions that are tested without mocks; services only do I/O.
+> ```
+> 
+> **I recommend (b).** The rejected alternatives read as your reasoning rather than a list, and that's what the interviewer will dig into.
+> 
+> Which one: a, b, or your own edits?
+
+### 2026-11-17T14:08:48.247Z : /readme — user
+
+> b
+
+### 2026-11-17T14:09:11.476Z : /readme — assistant
+
+> Section 2 is written. The README now covers Setup and Architecture.
+> 
+> ## Section 3 — Retrieval strategy: key points
+> 
+> I checked these against the code. **Only one DummyJSON endpoint is used:** `GET /products?limit=0`. The details popup and the shop grid are also served from that cached copy (`catalog.service.ts:27`), not from `/products/:id`.
+> 
+> **How the query is decided** (ADR 0002)
+> - The model fills the `search_products` tool, and **the tool input is the structured query**:
+>   - `category`: an enum of the 24 real slugs, or null
+>   - single-word `keywords`
+>   - `minPrice` / `maxPrice`, `sortBy`, `offset`, `label`
+>   - `confidence: clear | guessed` + `assumption`; the schema rejects `guessed` without an assumption
+> - Confidence is a label, not a number. Self-reported numbers aren't calibrated, and a label maps directly to the "state your assumption" rule.
+> - Code, not the prompt, applies the filter (`filterProducts`, pure): drop out-of-stock → category → part-of-word keyword match weighted by field → exact inclusive price range → sort → page of 4 + `total`.
+> - Cards render only from tool output, so the model can't put an invented Product on screen.
+> 
+> **Why not DummyJSON's own search/filters** (verified live)
+> - `search?q=` is a substring match: "cheap" → 0, "smartphone phone" → 0, and "phone" also returns accessories.
+> - There is no price filter (`maxPrice` is silently ignored).
+> - `sortBy` is documented only on `/products`.
+> - With 194 Products, fetching everything once (about 10 min cache, stale copy if DummyJSON is down, 5 s timeout) is simpler and exact.
+> 
+> **No vector RAG:** ***REDACTED*** can't create embeddings (403), and `text-embedding-3-small` isn't an allowed model. At 194 items, the model mapping a request to one of 24 categories already does the semantic step.
+> 
+> **Behaviour**
+> - **"something cheap and cool"** → a guessed search (e.g. sunglasses ≤ $50, price ascending) with the 💡 Assumption chip on the group, and the reply ends with one follow-up question. It searches instead of blocking on a clarifying question.
+> - **"a flight to Tokyo"** → `report_off_catalog` → a "Not sold here" notice, plus optional real suggestions that are still real search results. It never invents a Product. Known noise: it sometimes adds an empty related group.
+> - **Multi-intent** ("a phone under $500 and a lipstick") → two parallel tool calls → one Product Group per intent, each showing ≤ 4 cards + "N more".
+> - **Follow-ups** ("cheaper ones") → the last 20 Messages, plus system notes listing the Products already shown (id, title, price, the search). "Show more" reuses the stored query in code, and only the offset comes from the model.
+> 
+> **Confirm or correct?** One question: should the README mention the earlier fix where the model searched for "flight" three times and replied with nothing (fixed by forcing a text-only final step)? It's a good "what I tried" story for the interview, but it adds length.
+
+### 2026-11-17T14:14:27.257Z : /readme — user
+
+> yes
+
+### 2026-11-17T14:14:43.155Z : /readme — assistant
+
+> ## Section 3 — Retrieval strategy: two drafts
+> 
+> ### (a) Terse bullets
+> 
+> ```markdown
+> ## Retrieval strategy
+> 
+> - **Endpoint:** only `GET /products?limit=0`. All 194 Products are fetched once, cached ~10 min, with a 5 s timeout, and the stale copy is served if DummyJSON is down. Chat search, the details popup and the shop grid all read from this copy.
+> - **Why not `search?q=` / filters:** substring match ("cheap" → 0, "smartphone phone" → 0, "phone" also returns accessories), no price filter (`maxPrice` silently ignored), `sortBy` only on `/products`.
+> - **The query is the tool input.** The model calls `search_products` with `category` (enum of the 24 real slugs or null), single-word `keywords`, `minPrice`/`maxPrice`, `sortBy`, `offset`, and `confidence: clear | guessed` + `assumption` (required when guessed). A label, not a number: self-reported numeric confidence isn't calibrated.
+> - **Code filters, not the prompt:** `filterProducts` (pure) drops out-of-stock → category → part-of-word keyword match weighted by field → exact price range → sort → 4 per page + total. Cards render only from tool output, so an invented Product can't appear.
+> - **No vector RAG:** ***REDACTED*** can't embed, and the embedding model isn't allowed. At 194 items, mapping the request to one of 24 categories is the semantic step.
+> - **Ambiguous** ("something cheap and cool"): a guessed search (e.g. sunglasses ≤ $50, cheapest first), a 💡 Assumption chip on the group, and one follow-up question.
+> - **Off-catalog** ("a flight to Tokyo"): `report_off_catalog` → "Not sold here" + optional real suggestions.
+> - **Multi-intent:** parallel tool calls → one Product Group per intent.
+> - **Follow-ups / Show more:** last 20 Messages + system notes of the Products already shown. Show more reuses the stored query; only the offset changes.
+> - **Tried and fixed:** on "a flight to Tokyo" the model searched for "flight" three times and replied with nothing → the last step is now forced to text only.
+> ```
+> 
+> ### (b) Short prose (recommended)
+> 
+> ```markdown
+> ## Retrieval strategy
+> 
+> I call one DummyJSON endpoint: `GET /products?limit=0`. It returns all 194 Products, which the API caches for about 10 minutes (5 s timeout; if DummyJSON is down, it serves the stale copy). Chat search, the details popup and the shop grid all read from this copy. I tried the API's own search first and it didn't fit: `search?q=` is a substring match ("cheap" → 0 results, "smartphone phone" → 0, "phone" also returns phone accessories), there is no price filter (`maxPrice` is silently ignored), and `sortBy` is only documented on `/products`. At this catalog size, filtering in memory is simpler and exact (ADR 0002).
+> 
+> **The model decides the query by filling in a tool.** `search_products` takes `category` (an enum of the 24 real slugs, or null), single-word `keywords`, `minPrice`/`maxPrice`, `sortBy`, `offset`, and `confidence: clear | guessed` with an `assumption` that the schema requires when the search is a guess. Confidence is a label rather than a number, because a model's self-reported number isn't calibrated. The code then does the part that has to be right: `filterProducts` (a pure function) drops out-of-stock items, matches category, matches keywords inside words with title weighted above description, applies the exact price range, sorts, and returns 4 cards plus a total. Cards render only from tool output, so the model can't put an invented Product on screen. I skipped vector RAG: ***REDACTED*** can't create embeddings and the embedding model isn't on the allowed list. With 194 items, the model mapping a request to one of 24 categories already does the semantic step.
+> 
+> - **Ambiguous** ("something cheap and cool"): I'd rather show something than block on a question. The model makes a guessed search (for example sunglasses under $50, cheapest first), the group carries a 💡 Assumption chip, and the reply ends with one question to narrow it down.
+> - **Off-catalog** ("a flight to Tokyo"): the model calls `report_off_catalog`, the chat shows "Not sold here", and any suggestions are real search results. An early version searched for "flight" three times and then replied with nothing; I fixed it by forcing the last step to be text only.
+> - **Multi-intent** ("a phone under $500 and a lipstick"): the model makes two parallel tool calls, and each becomes its own Product Group.
+> - **Follow-ups** ("cheaper ones", "show more"): the model sees the last 20 Messages plus system notes listing the Products already shown (id, title, price and the search used). "Show more" reuses the stored search in code, so only the offset comes from the model. Before that fix, the model changed the sort order and a Product repeated.
+> ```
+> 
+> **I recommend (b).** "I tried the API's search first and it didn't fit" is exactly the "what did you try and abandon" the assignment asks about. It's longer than Section 2, but this is the section the interviewer will dig into most.
+> 
+> Which one: a, b, or edits?
+
+### 2026-11-17T14:14:56.060Z : /readme — user
+
+> b
+
+### 2026-11-17T14:15:22.545Z : /readme — assistant
+
+> Section 3 is written. Next up:
+> 
+> ## Section 4 — Conversation & state: key points
+> 
+> I checked these against `sqlite.conversation-repository.ts`, `chat-turn.service.ts` and `ai-sdk.llm.ts`.
+> 
+> **Where persistence lives: server-side SQLite** (`node:sqlite`, built into Node, no native dependency; WAL mode). ADR 0003.
+> - Two tables: `conversations` and `messages`, one row per Message. Each payload is our own `Message` JSON (text + Product Groups), validated with zod when read.
+> - The browser sends only the new message. The server loads the history itself, so the LLM context can't be changed from the browser.
+> - The full page keeps the Conversation id in the URL (`/chat/:id`). The widget keeps only a pointer, `{ open, conversationId }`, in localStorage, also zod-validated with try/catch.
+> 
+> **Rejected:**
+> - **localStorage:** clearing site data loses everything mid-conversation, the ~5 MB quota fills up with Product Groups, and history sent by the client can be tampered with.
+> - **IndexedDB:** the same loss-on-clear problem, with a clumsier API.
+> 
+> **Failure modes**
+> 
+> | Case | Behaviour |
+> |---|---|
+> | Browser storage cleared mid-chat | Nothing lost. The widget opens on a new chat, and all Conversations are still listed in ☰ / the sidebar. |
+> | Pointer corrupted / localStorage blocked | Parsed with zod in try/catch, so it falls back to a closed widget on a new chat. |
+> | Corrupted DB row | That row is skipped and a warning is logged; the rest of the Conversation loads. |
+> | Disk full / save fails | Saving is one transaction (rolled back on error). The streamed reply is still shown, and an error part says "Your reply was shown but could not be saved". |
+> | DB file can't be opened at startup | The API fails fast with "Cannot open the conversations database at …". |
+> | DB file deleted while running | No crash, but the data is gone after a restart, and the old URL shows "Conversation not found" + New chat. |
+> | Tab closed mid-reply | The server keeps draining the stream, so the reply still finishes and is saved. |
+> 
+> **Trade-off / assumption:** there's no auth, so everyone using the same server sees one shared Conversation list. Adding users would mean a `shopperId` column plus auth.
+> 
+> **Confirm or correct?** In particular, should I keep the "tab closed mid-reply" row? It's a nice detail but not one the assignment asks about.
+
+### 2026-11-17T15:01:56.613Z : /readme — user
+
+> I think I want to add RAG support :
+> 1. what changes required to add it ?
+> 2. also I think there should be by keywords direct result and recommended by RAG.
+> 3. what required to make this POC ready to production with minimal changes - DB with 100K products and so on...
+
+### 2026-11-17T15:02:47.647Z : /readme — assistant
+
+> I'll pause the README at Section 4 (that draft is still waiting on your answer) and take this first, since it may change Sections 3 and 6.
+> 
+> **One blocker first: embeddings.** The assignment allows only `***REDACTED***`, and it can't create embeddings (403). `text-embedding-3-small` works on the key but isn't on the allowed list. That's why ADR 0002 rejected RAG. So the first decision is where the vectors come from.
+> 
+> ## 1. What changes RAG needs (built on the current code)
+> 
+> The ports already sit in the right places, so this is an addition to the code, not a rewrite.
+> 
+> | Layer | Change |
+> |---|---|
+> | **contracts** (`packages/contracts/src/index.ts`) | `SearchProductsInputSchema` gets a `semanticQuery: string` field: one natural-language sentence per intent ("light summer clothes for the beach"). Per intent, not the raw message, so multi-intent still splits cleanly. `ProductGroupSchema` gets `kind: 'match' \| 'recommended'`. |
+> | **catalog/application** | A new `EmbeddingPort { embed(texts): Promise<number[][]> }` and a `ProductIndex` built once from `CatalogPort.getAll()`. Embedded text: title + category + brand + tags + description. 194 vectors, kept in memory, rebuilt when the 10-min cache refreshes. |
+> | **catalog/domain** (pure) | `rankBySimilarity(products, vectors, queryVector, filters, excludeIds, k)` does cosine similarity plus the **same hard filters** (stock, price range). Code still enforces the price limit, so R6 still holds. |
+> | **catalog/infrastructure** | The embedding adapter (see D40). |
+> | **assistant** (`chat-turn.service.ts` `createTurnTools`) | One `search_products` call returns two groups, built in code with no extra LLM step. |
+> | **web** | `ProductGroup` shows a "Recommended" heading or chip for `kind: 'recommended'`. Same cards, same component. |
+> | **tests / evals** | Unit tests for `rankBySimilarity` with fake vectors. A fake `EmbeddingPort` in e2e. New eval rules: the recommended group is disjoint from the match group, still respects R6/R9, and a semantic case like "something for the beach" gets ≥ 1 recommendation. |
+> 
+> ## 2. Direct match by keywords + recommended by RAG
+> 
+> I agree, and I'd do it **in code, not as a second tool**:
+> 
+> ```
+> search_products(query)
+>   ├─ match       = filterProducts(catalog, query)                     ← exact, as today
+>   └─ recommended = rankBySimilarity(embed(query.semanticQuery),
+>                      filters = stock + price, exclude = match ids, k = 4)
+> ```
+> 
+> - **Why in code:** it's deterministic, there's no extra model step (about 5 s each with ***REDACTED***), and the model can't skip it.
+> - **When the match group is empty**, the recommended group carries the answer. That fixes today's weak spots: no synonyms ("cellphone"), "for the beach", and the empty group on "a flight to Tokyo".
+> - **Alternative: one fused list** (Reciprocal Rank Fusion, a standard way to merge two rankings). It's a cleaner UI, but you lose the "exact vs. similar" distinction you asked for, so I wouldn't.
+> 
+> ## 3. Production with 100K products: the minimal-change path
+> 
+> | What breaks at 100K | Change |
+> |---|---|
+> | Full catalog in memory + `filterProducts` over an array | Push the filters down to a search store. **Postgres + pgvector:** `tsvector` for keywords, a vector index (HNSW) for similarity, and price/stock/category as SQL `WHERE`. The pure query-building stays; `CatalogPort.getAll()` becomes `search(query)`. |
+> | `category` is an enum of 24 slugs in the tool schema | Taxonomies are too big for an enum. Retrieve the top-N likely categories by vector first and pass only those to the model, or drop the enum and use category as a soft filter. |
+> | Fetching the catalog every 10 min | An ingestion job: incremental sync, a content hash per Product, and re-embedding only what changed. |
+> | SQLite, one shared conversation list | Postgres (the same DB as above) behind the existing `ConversationRepository` port, plus auth + `shopperId`. |
+> | Catalog cache inside the process | A stateless API, so it scales horizontally. SSE works behind a load balancer without sticky sessions (one request = one stream). |
+> | Evals: 6 cases, run once each | A golden query set with retrieval metrics (recall@k, nDCG: whether the right Products show up and how high), N runs per case reporting a pass rate, and an LLM judge for wording. |
+> | Ops | Rate limiting per shopper, cached query embeddings, a trace per turn (tool inputs, latency, tokens), and handling for OpenAI rate limits. |
+> 
+> The point to make in the interview: **Postgres + pgvector replaces both SQLite and the in-memory catalog with one piece of infrastructure.** The ports (`CatalogPort`, `ConversationRepository`, `EmbeddingPort`) mean only the adapters change.
+> 
+> ## Decisions
+> 
+> ```
+> ❓ D40 — Where do embeddings come from?
+> (a) Local model in-process (@huggingface/transformers, all-MiniLM-L6-v2, ~23 MB, CPU): no key and not an OpenAI model, so it arguably stays inside "***REDACTED*** only". 194 items embed in a few seconds at startup. (Recommended)
+> (b) text-embedding-3-small via the key: better quality, but it's explicitly not an allowed model, which is a red flag in an interview about following constraints.
+> (c) No vectors: ***REDACTED*** re-ranks a candidate list. It's allowed, but adds a ~5 s call per search and doesn't scale to 100K.
+> ➡️ (a) is the only option that adds real semantic search without breaking the model rule. Say in the README that it's an assumption.
+> 
+> ❓ D41 — Build it now, or design it only?
+> (a) Design only: ADR 0004 + README "with another week" + the production table above. Fits the ~3 h budget, and you can defend it in the interview. (Recommended)
+> (b) Build the POC (section 1 + 2): roughly half a day including tests and eval rules, then re-run /qa and update README Section 3.
+> (c) Build only the "recommended when 0 matches" fallback: smaller, but still needs the full embedding setup, so it saves little.
+> ➡️ The assignment is graded on judgment, and "I scoped RAG out at 194 items for these reasons, and here's exactly how I'd add it" is a strong answer. There's time before the 28 Nov deadline, though, if you'd rather show it working.
+> 
+> ❓ D42 — How are the two groups shown?
+> (a) Two groups per intent: "Phones under $500" + "You might also like", the latter shown only when it adds something new. (Recommended)
+> (b) One fused list (Reciprocal Rank Fusion) with a "similar" chip on recommended cards.
+> ➡️ (a) matches what you asked for and keeps R6/R9 easy to check per group.
+> ```
+> 
+> Whatever you pick, I'll record it in SESSION-LOG and update Section 3 and Known limitations to match. If you pick D41 (b), the next step is `/architect` (ADR 0004 + a new slice), then `/developer S8`.
+
+### 2026-11-17T15:06:35.161Z : /readme — user
+
+> D40 - agree
+> D41 - can it be done without postgress and pgvector as POC ? and later it can be switched for proper ports ?
+> D42 - agree
+
+### 2026-11-17T15:07:03.298Z : /readme — assistant
+
+> The decisions are logged in `docs/ai-log/SESSION-LOG.md`, and the RAG notes are in `docs/readme-notes.md` for the README.
+> 
+> To confirm: **D41 = (b), build the POC** with an in-memory vector index and a local embedding model behind the two ports, then swap in pgvector later?
+> 
+> If yes, I'd stop the README here and go back up the chain. Otherwise Sections 3–6 would describe code that's about to change.
+> 
+> 1. **`/architect`**: verify `@huggingface/transformers` live on Node 26, write ADR 0004 (it replaces ADR 0002's "no vector RAG"), and add slice S8 to `docs/architecture.md`.
+> 2. **`/developer S8`**: build it test-first, with the new eval rules.
+> 3. **`/qa`**: re-run the suites and the live eval.
+> 4. **`/readme`**: resume at Section 4. Sections 1–2 stay as written, and Section 3 gets a short RAG paragraph.
+> 
+> Prompt to paste:
+> ```
+> /architect add RAG (D40 a, D41 b, D42 a from SESSION-LOG): local all-MiniLM-L6-v2 embeddings behind EmbeddingPort, in-memory VectorIndexPort taking filters + k (pgvector-ready), search_products gains semanticQuery and returns a match group + a "You might also like" group built in code; verify the library on Node 26 ESM, write ADR 0004 superseding ADR 0002's no-RAG part, add slice S8
+> ```
+> 
+> If you'd rather stay with design only (D41 a), say so and I'll go on with Section 4 now. RAG would then go into Known limitations as "with another week", along with the production table.
+
+### 2026-11-17T15:07:12.279Z : /readme — user
+
+> do we need BM25 ?
+
+### 2026-11-17T15:07:33.193Z : /readme — assistant
+
+> I recorded "no BM25 in the POC" in `docs/ai-log/SESSION-LOG.md`, added it to `docs/readme-notes.md`, and put the related interview questions in `docs/interview-prep.md`. Say if you disagree.
+> 
+> Still open: **D41 — build the RAG POC now** (go to `/architect` with the prompt above), **or design only** (I go on with README Section 4)?
+
+### 2026-11-17T15:07:52.183Z : /architect — user
+
+> /architect add RAG (D40 a, D41 b, D42 a from SESSION-LOG): local all-MiniLM-L6-v2 embeddings behind EmbeddingPort, in-memory VectorIndexPort taking filters +
+>   k (pgvector-ready), search_products gains semanticQuery and returns a match group + a "You might also like" group built in code; verify the library on Node
+>   26 ESM, write ADR 0004 superseding ADR 0002's no-RAG part, add slice S8
+
+### 2026-11-17T15:09:16.811Z : /architect — assistant
+
+> **Library check: it works on Node 26 ESM.** I tested `@huggingface/transformers@4.3.2` with `Xenova/all-MiniLM-L6-v2` (q8) in the scratchpad against the live catalog:
+> 
+> | Measure | Result |
+> |---|---|
+> | First load (downloads the model) | ~13 s, 24 MB |
+> | Load when cached | 74 ms |
+> | Embedding all 194 Products | 0.5 s, 384 dimensions |
+> | One query (embed + cosine scan) | 2–3 ms |
+> | Install size | ⚠ **+471 MB node_modules** (onnxruntime-node ships binaries for every platform). API only; the web bundle is unaffected. |
+> | npm postinstall | Blocked by your npm config, but not needed: the macOS arm64 binaries ship in the package |
+> 
+> **Quality, which shapes the design:**
+> 
+> | Query | Top hits (cosine) | Verdict |
+> |---|---|---|
+> | "cellphone" (raw) | 4 smartphones, 0.41 | ✅ the synonym gap is fixed |
+> | "running shoes" | sneakers, 0.50 | ✅ |
+> | "something for the beach" (raw) | **Fish Steak** 0.28, earring, sunglasses | ❌ weak |
+> | …written by the model as "summer beach items: swimwear, sunglasses, sun hat, sandals, beach bag" | sunglasses 0.49, summer dress 0.45 | ✅ **an expanded `semanticQuery` beats the raw text** |
+> | "video games, gaming console…" (nothing like it in stock) | football, basketball, ~0.31 | ❌ irrelevant |
+> | "air travel tickets and flights" (off-catalog) | Touring car, Party Glasses, ≤ 0.21 | ❌ irrelevant |
+> 
+> So it confirms the plan: the **model writes `semanticQuery` as an expanded description**, not a copy of the user's words. It also shows that **always returning a top-4 would show junk** on off-catalog and no-match requests. That makes the score threshold the key decision.
+> 
+> ```
+> ❓ D43 — When is the "You might also like" group shown?
+> (a) Fixed minimum cosine 0.35; drop items below it; hide the group if none are left. The eval tunes the number. (Recommended)
+> (b) Always the top 4, no threshold.
+> (c) Relative: keep items ≥ 90% of the best score.
+> ➡️ The probe shows a clear gap: relevant ≥ 0.41, junk ≤ 0.31. (b) would put Touring cars under "a flight to Tokyo". (c) still shows junk when the best score is junk.
+> 
+> ❓ D44 — When do the model and vectors load, and what if they fail?
+> (a) Load the model once at startup in the background, embed the catalog whenever the catalog cache refreshes, and keep vectors keyed by Product id. If the model is still loading or fails, search returns only the match group and logs a warning; the turn never fails. (Recommended)
+> (b) Load at startup and wait; the API won't start without the model (fail fast, like the key check).
+> (c) Load lazily on the first search: the first turn after start pays ~13 s.
+> ➡️ Recommendations are extra, so they should degrade to "no recommendations", not block chat. (b) would make a fresh clone without internet unable to start. (c) puts the 13 s on the Shopper.
+> 
+> ❓ D45 — How do the two groups travel?
+> (a) search_products returns { match, recommended | null }. Both are ProductGroups, and ProductGroupSchema gains kind: 'match' | 'recommended'. Message.productGroups stays a flat list, so storage, history notes and the eval reuse what exists. (Recommended)
+> (b) ProductGroup gains a nested recommendations field.
+> ➡️ (a) keeps one Product Group shape and one renderer; (b) touches every reader of ProductGroup.
+> ```
+> 
+> **Stated defaults** (object to any of these):
+> - `semanticQuery`: a required string in `SearchProductsInputSchema`, described as "an expanded description of what fits, e.g. product types". The prompt says to expand vague requests.
+> - Embedded text per Product: `title. category. brand. tags. description`.
+> - Recommended filters: in stock + the same price range, **ignoring category** (crossing categories is the point). It excludes **every** match id, not just the 4 shown, so it never repeats what "Show more" would show. Max 4, no Show more on it.
+> - No recommended group on off-catalog turns or on Show-more pages.
+> - The model cache lives in `data/models/` (already gitignored via `data/`). Tests use a fake `EmbeddingPort`, so `npm test` stays offline.
+> - Pure functions: `toEmbeddingText`, `cosine`, `rankBySimilarity` (filters, exclusions, threshold, k).
+> - Glossary: a new term, **Recommended Group**: "a Product Group of similar Products shown below the matches of one Search Intent".
+> - Eval: new rule **R10** (the recommended group doesn't overlap the matches and obeys R6/R9) and a new case "something for the beach" that expects ≥ 1 recommended Product.
+> 
+> Once you answer, I'll write ADR 0004, update `docs/architecture.md` (diagrams, tool table, S8), the contracts plan and the glossary, then log and commit.
+
+### 2026-11-17T15:13:27.591Z : /architect — user
+
+> agree to recomendations
+
+### 2026-11-17T15:14:44.875Z : /architect — assistant
+
+> I tested the local embedding model and it works on Node 26 ESM. The S8 design is written up and committed (`04ddc64`); no code has changed yet.
+> 
+> **What the test showed:**
+> - **Speed:** the model is 24 MB. The first start takes about 13 s because it downloads the model; after that it loads in 74 ms. Embedding all 194 Products takes 0.5 s, and one search adds 2–3 ms.
+> - **Install size:** it adds about 470 MB to `node_modules`, for the API only. The web bundle is unaffected.
+> - **Quality:** "cellphone" now finds smartphones. "something for the beach" only works when the model rewrites it as a fuller description (Fish Steak came first with the raw words; sunglasses and a summer dress came first with the rewrite). So the model writes that description, `semanticQuery`, for every search.
+> - **Threshold:** requests with nothing similar in the catalog (gaming, flights) scored at most 0.31, against at least 0.41 for real hits. So the "You might also like" group needs a minimum score; it's set to 0.35 and hidden when nothing passes.
+> 
+> **Committed:**
+> - `docs/adr/0004-local-embeddings-recommended-group.md` records the decision, the test numbers and the rejected alternatives. It supersedes the "no vector RAG" part of ADR 0002, and ADR 0002 now says so.
+> - `docs/architecture.md` has decisions D40–D45, the new ports and pure functions, the tool output `{ match, recommended | null }`, and slice S8.
+> - `docs/requirements.md` adds rule R10 and AC3.10, and `GLOSSARY.md` adds "Recommended Group".
+> - The session log, `docs/interview-prep.md` and `docs/readme-notes.md` are updated.
+> 
+> `README.md` is still a draft and not committed; it pauses at Section 4 until S8 and `/qa` have run.
+> 
+> ➡️ Next step: `/developer S8`
+> 
+> Prompt to paste:
+> ```
+> /developer S8 Recommended Group (RAG) from docs/architecture.md and ADR 0004 — contracts (semanticQuery, kind, {match, recommended}), pure toEmbeddingText + rankBySimilarity (0.35, exclude all match ids, price + stock filters), EmbeddingPort + VectorIndexPort with local-embedding and in-memory adapters (background load, match-only fallback), prompt + history notes, "You might also like" in the web, eval R10 + beach case
+> ```
+> 
+> After that: `/qa` again, then `/readme` to finish from Section 4.
+
+### 2026-11-17T15:16:32.050Z : /developer — user
+
+> /developer S8 Recommended Group (RAG) from docs/architecture.md and ADR 0004 — contracts (semanticQuery, kind, {match, recommended}), pure toEmbeddingText +
+>   rankBySimilarity (0.35, exclude all match ids, price + stock filters), EmbeddingPort + VectorIndexPort with local-embedding and in-memory adapters
+>   (background load, match-only fallback), prompt + history notes, "You might also like" in the web, eval R10 + beach case
+
+### 2026-11-17T15:17:50.483Z : /developer — assistant
+
+> I've read the slice and the code it touches. Three things in the code shape the options:
+> 
+> - **Stored Messages are validated with zod on read, and invalid rows are skipped** (AC5.2). Every Product Group already in `data/app.db` lacks `kind` and `semanticQuery`. If the schema just gains required fields, **your existing conversations silently disappear**.
+> - **Stored groups reach the web one group per tool part** (`to-ui-messages.ts`), while a live `search_products` output will now be `{ match, recommended }`.
+> - **The eval rules count every group** (R4 counts groups, R5 compares against all earlier cards). Recommended groups would break them, so those rules must look at match groups only.
+> 
+> ```
+> ❓ D46 — Stored Messages without the new fields
+> (a) Defaults on read: kind defaults to 'match'; stored queries use a lenient schema where semanticQuery defaults to "". The tool input schema stays strict (the model must send it). (Recommended)
+> (b) A one-off SQLite migration at startup that rewrites old payloads.
+> (c) Nothing: old rows fail validation and get skipped, so existing chats are lost.
+> ➡️ (a) is two lines in contracts, with no migration code to test, and the "corrupt row skipped" rule keeps meaning "actually corrupt".
+> 
+> ❓ D47 — Keeping vectors in sync with the catalog (implements D44)
+> (a) A RecommendationService in catalog/application compares the catalog array it last indexed with what CatalogPort.getAll() returns now. If it changed, it re-embeds in the background (single-flight, one rebuild at a time) and keeps serving the old index. No index yet → recommended: null. Warm-up starts on module init. DummyJsonCatalog is untouched. (Recommended)
+> (b) DummyJsonCatalog gets an onRefresh(products) callback that the index subscribes to. That's push, but it couples the catalog adapter to embeddings.
+> (c) Re-embed synchronously inside the search when stale: simplest, but that turn pays 0.5 s, or ~13 s on the very first one.
+> ➡️ (a) keeps the fallback from D44 and needs no new event plumbing.
+> 
+> ❓ D48 — Two shapes of search output in the web
+> (a) toChatItems accepts the live { match, recommended } and the stored bare ProductGroup. toUIMessages stays as it is. (Recommended)
+> (b) toUIMessages re-pairs stored groups into { match, recommended } so only one shape exists. Pairing by array order is fragile.
+> ➡️ (a) is one extra safeParse branch in an already pure, already tested function.
+> ```
+> 
+> **Defaults** (object to any):
+> - **Off-catalog:** after `report_off_catalog` in the same turn, searches get no Recommended Group, so "Instead: travel bags" stays a plain match group. That's enforced in code, not left to the threshold.
+> - **No Recommended Group on Show-more pages** (offset > 0). `resolvePagedQuery` only matches `kind: 'match'` groups.
+> - **Recommended group label:** `You might also like · <match label>`. It has no "1–4 of N" and no Show more, and the UI shows a ✨ heading.
+> - **History note:** "Also suggested (similar, not exact matches) — …", so a follow-up like "cheaper ones" can tell the two groups apart.
+> - **Prompt:** `semanticQuery` is described as an expanded description (product types and uses). The prompt also says "a 'You might also like' group is added automatically — don't search for it".
+> - **Adapters:** `LocalEmbedding` (`@huggingface/transformers` pinned to `4.3.2`, model cache in `data/models/`) and `InMemoryVectorIndex`. `createTestApp` overrides `EmbeddingPort` with a fake, so `npm test` stays offline.
+> - **Eval changes:**
+>   - R4 and R5 count match groups only.
+>   - New R10: a recommended Product isn't in its match group, is in stock, and is ≤ that query's `maxPrice`.
+>   - New case `beach` expects ≥ 1 recommended Product.
+>   - The `off-catalog` case also expects no Recommended Group.
+> - **Tests first:** `toEmbeddingText`, `cosine`, `rankBySimilarity`, contracts back-compat, `RecommendationService` (fake ports: fallback, rebuild, single-flight), `toChatItems` with both shapes, `ProductGroup` recommended heading, an e2e with a fake embedder, and the eval checks.
+> 
+> Pick D46–D48 (or "agree") and I'll build it.
+
+### 2026-11-17T15:18:35.365Z : /developer — user
+
+> agree to recomendations
+
+### 2026-11-17T15:29:38.620Z : /developer — assistant
+
+> The live eval passed 5 of 7 cases. The two failures are real design questions rather than bugs, so I'm stopping to ask before committing.
+> 
+> | Case | What happened | Why |
+> |---|---|---|
+> | **off-catalog** "a flight to Tokyo" | The "Instead: travel bags" search found **0** keyword matches, but got a Recommended Group with one real bag (Prada Women Bag) | The model sent `report_off_catalog` and the search **in the same step**, and the search ran first. So my "no recommendations after off-catalog" rule depends on call order. |
+> | **beach** "something for the beach" | "Beach essentials (4 of **190**)" + "Beach sunglasses (4 of 5)", with no Recommended Group | The model ran a search with no category and no keywords, so all 190 in-stock Products matched. "Exclude **every** match id" then left almost nothing to recommend. |
+> 
+> Everything else held: R10 passed on all 7 cases, there was no junk (nothing like the Touring car), and recommendations showed up on plain, multi-intent and follow-up. The bag result in the off-catalog case is actually today's "empty related group" problem (QA finding B1) being fixed by RAG.
+> 
+> ```
+> ❓ D49 — Recommendations after an off-catalog report
+> (a) Allow them. Drop the code rule and let the 0.35 threshold keep junk out. A raw "flight" never gets embedded; the related "Instead: …" search has its own semanticQuery ("travel bags"), so its suggestions are related. The off-catalog eval case keeps R3 + R10 but no longer expects zero recommendations. (Recommended)
+> (b) Keep the rule, but key it on the "Instead:" label the prompt already demands. Deterministic only as long as the model follows the label convention.
+> (c) Keep it as it is: it depends on tool-call order, so it's flaky.
+> ➡️ The live run shows (a) gives the better answer: a real bag under an empty "travel bags" search, instead of an empty group.
+> 
+> ❓ D50 — What a Recommended Group excludes
+> (a) Only the Products shown in the match group (this page). A recommended item may show up again if the Shopper presses Show more on the matches. (Recommended)
+> (b) All match ids (as now): broad searches (no category, no keywords) leave nothing to recommend, as in the beach case.
+> (c) Keep (b), and when a search is unfiltered and sorted by relevance, rank the match group itself by similarity instead of rating. The best result for vague requests, but ~30 more lines and a second ranking path in filterProducts.
+> ➡️ (a) is a one-line change and fixes the beach case. (c) goes under "with another week" in the README.
+> ```
+> 
+> The tests, typecheck, lint and build are all green, and nothing is committed yet. `docs/qa-report.md` now holds this 5/7 run; it'll be overwritten by the re-run after your choice.
+
+### 2026-11-17T15:30:32.952Z : /developer — user
+
+> agree to recomendations

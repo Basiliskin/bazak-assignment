@@ -22,6 +22,43 @@ export function groupRange(group: GroupPage): { label: string; remaining: number
   };
 }
 
+interface HeadedGroup extends GroupPage {
+  kind: 'match' | 'recommended';
+  label: string;
+  query: GroupPage['query'] & { label: string; confidence: 'clear' | 'guessed'; assumption: string | null };
+}
+
+export interface GroupHeader {
+  title: string;
+  /** "1–4 of 16" for matches; "Similar to <intent>" for a Recommended Group. */
+  subtitle: string;
+  assumption: string | null;
+  /** Matches not shown yet; always 0 for a Recommended Group (it has no Show more). */
+  remaining: number;
+  recommended: boolean;
+}
+
+/** What a Product Group's header shows (AC4.2, R2; Recommended Group per ADR 0004). */
+export function groupHeader(group: HeadedGroup): GroupHeader {
+  if (group.kind === 'recommended') {
+    return {
+      title: 'You might also like',
+      subtitle: `Similar to ${group.query.label}`,
+      assumption: null,
+      remaining: 0,
+      recommended: true,
+    };
+  }
+  const range = groupRange(group);
+  return {
+    title: group.label,
+    subtitle: range.label,
+    assumption: group.query.confidence === 'guessed' ? group.query.assumption : null,
+    remaining: range.remaining,
+    recommended: false,
+  };
+}
+
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 export const formatPrice = (price: number): string => usd.format(price);
 

@@ -8,8 +8,8 @@ export interface EvalCase {
 }
 
 /**
- * AC7.2: plain, price-limited, ambiguous, off-catalog, multi-intent, follow-up.
- * R1 (real Products), R7 (≤ 4 cards) and R9 (no out-of-stock Product) are checked on every case.
+ * AC7.2: plain, price-limited, ambiguous, off-catalog, multi-intent, follow-up; AC3.10: beach (S8).
+ * R1 (real Products), R7 (≤ 4 cards), R9 (no out-of-stock Product) and R10 (Recommended Group) are checked on every case.
  */
 export const EVAL_CASES: readonly EvalCase[] = [
   { id: 'plain', turns: ['show me smartphones'], expect: { intents: ['smartphones'] } },
@@ -32,4 +32,6 @@ export const EVAL_CASES: readonly EvalCase[] = [
     turns: ["show me men's watches, most expensive first", 'show me cheaper ones'],
     expect: { intents: ['mens-watches'], cheaperThanPrevious: true },
   },
+  // ADR 0004: no keyword says "beach" well — the Recommended Group should carry it.
+  { id: 'beach', turns: ['something for the beach'], expect: { recommended: true } },
 ];

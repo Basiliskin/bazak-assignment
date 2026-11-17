@@ -1,5 +1,5 @@
 import type { ProductCard as ProductCardData, ProductGroup as ProductGroupData } from '@app/contracts';
-import { groupRange } from '../lib/product-view';
+import { groupHeader } from '../lib/product-view';
 import { ProductCard } from './ProductCard';
 
 export type GroupLayout = 'grid' | 'carousel';
@@ -35,7 +35,10 @@ const LAYOUTS: Record<
   ),
 };
 
-/** One Search Intent's results (AC4.2): label, "1–4 of N", Assumption chip, cards, "N more match · Show more". */
+/**
+ * One Search Intent's results (AC4.2): label, "1–4 of N", Assumption chip, cards, "N more match · Show more".
+ * A Recommended Group (ADR 0004) gets a ✨ "You might also like" header and no paging.
+ */
 export function ProductGroup({
   group,
   layout = 'grid',
@@ -43,14 +46,16 @@ export function ProductGroup({
   onShowMore,
   showMoreDisabled = false,
 }: Props) {
-  const range = groupRange(group);
-  const assumption = group.query.confidence === 'guessed' ? group.query.assumption : null;
+  const header = groupHeader(group);
   return (
     <section aria-label={group.label} className="animate-rise">
       <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <h3 className="text-sm font-semibold text-zinc-900">{group.label}</h3>
-        <span className="text-xs text-zinc-500">{range.label}</span>
-        {assumption && <AssumptionChip text={assumption} />}
+        <h3 className={`text-sm font-semibold ${header.recommended ? 'text-violet-700' : 'text-zinc-900'}`}>
+          {header.recommended && <span aria-hidden="true">✨ </span>}
+          {header.title}
+        </h3>
+        <span className="text-xs text-zinc-500">{header.subtitle}</span>
+        {header.assumption && <AssumptionChip text={header.assumption} />}
       </div>
       {group.products.length > 0 ? (
         LAYOUTS[layout](group.products, onOpenProduct)
@@ -59,9 +64,9 @@ export function ProductGroup({
           Nothing matched — try a broader search.
         </p>
       )}
-      {range.remaining > 0 && (
+      {header.remaining > 0 && (
         <div className="mt-2.5 flex items-center gap-3 text-xs text-zinc-500">
-          <span>{range.remaining} more match</span>
+          <span>{header.remaining} more match</span>
           {onShowMore && (
             <button
               type="button"

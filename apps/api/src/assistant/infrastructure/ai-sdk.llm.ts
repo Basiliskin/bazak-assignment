@@ -51,7 +51,8 @@ export class AiSdkLlm extends LlmPort {
           tools: {
             [TOOL_NAMES.searchProducts]: tool({
               description:
-                'Search the shop Catalog. One call per Search Intent. Returns up to 4 Products + total.',
+                'Search the shop Catalog. One call per Search Intent. Returns `match` (up to 4 matching Products + total) ' +
+                'and `recommended` (up to 4 similar Products the system adds as "You might also like", or null).',
               inputSchema: SearchProductsInputSchema,
               execute: (query) => request.tools.searchProducts(query),
             }),

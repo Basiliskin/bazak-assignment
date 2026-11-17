@@ -1,4 +1,12 @@
-import { discountBadge, formatPrice, groupRange, originalPrice, stockLabel } from './product-view';
+import { phoneGroup, similarGroup } from '../test/fixtures';
+import {
+  discountBadge,
+  formatPrice,
+  groupHeader,
+  groupRange,
+  originalPrice,
+  stockLabel,
+} from './product-view';
 
 describe('groupRange', () => {
   const group = (offset: number, shown: number, total: number) => ({
@@ -65,4 +73,31 @@ describe('stockLabel', () => {
     [10, { text: 'Only 10 left', tone: 'low' }],
     [11, { text: 'In stock', tone: 'in' }],
   ])('%i → %o', (stock, label) => expect(stockLabel(stock)).toEqual(label));
+});
+
+describe('groupHeader', () => {
+  it('a match group: its label, range, remaining and Assumption when guessed', () => {
+    expect(groupHeader(phoneGroup)).toEqual({
+      title: 'Phones under $500',
+      subtitle: '1–1 of 7',
+      assumption: null,
+      remaining: 6,
+      recommended: false,
+    });
+    const guessed = {
+      ...phoneGroup,
+      query: { ...phoneGroup.query, confidence: 'guessed' as const, assumption: 'x' },
+    };
+    expect(groupHeader(guessed).assumption).toBe('x');
+  });
+
+  it('a Recommended Group: "You might also like", tied to its intent, never "N more"', () => {
+    expect(groupHeader({ ...similarGroup, total: 9 })).toEqual({
+      title: 'You might also like',
+      subtitle: 'Similar to Phones under $500',
+      assumption: null,
+      remaining: 0,
+      recommended: true,
+    });
+  });
 });

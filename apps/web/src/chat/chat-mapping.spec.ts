@@ -1,4 +1,4 @@
-import { assistantMessage, phoneGroup, userMessage } from '../test/fixtures';
+import { assistantMessage, phoneGroup, similarGroup, userMessage } from '../test/fixtures';
 import type { ShopUIMessage } from './chat-types';
 import { toChatItems } from './to-chat-items';
 import { describeChatError } from './describe-chat-error';
@@ -66,6 +66,35 @@ describe('toChatItems (live stream parts)', () => {
     expect(item.searching).toEqual(['Phones under $500', 'Lip']);
     expect(item.productGroups).toEqual([]);
     expect(item.text).toBe('Looking\n\nnow');
+  });
+
+  it('maps a live search output to its match group and Recommended Group, in that order (D48)', () => {
+    const live: ShopUIMessage = {
+      id: 'a4',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-search_products',
+          toolCallId: 't1',
+          state: 'output-available',
+          input: phoneGroup.query,
+          output: { match: phoneGroup, recommended: similarGroup },
+        },
+        {
+          type: 'tool-search_products',
+          toolCallId: 't2',
+          state: 'output-available',
+          input: phoneGroup.query,
+          output: { match: phoneGroup, recommended: null },
+        },
+      ],
+    };
+    expect(toChatItems([live])[0]!.productGroups).toEqual([phoneGroup, similarGroup, phoneGroup]);
+  });
+
+  it('round-trips a stored Recommended Group (one group per stored part)', () => {
+    const stored = [assistantMessage('a1', 'ok', { productGroups: [phoneGroup, similarGroup] })];
+    expect(toChatItems(toUIMessages(stored))[0]!.productGroups).toEqual([phoneGroup, similarGroup]);
   });
 
   it('skips a tool output that is not a valid Product Group', () => {

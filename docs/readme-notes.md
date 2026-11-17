@@ -88,3 +88,11 @@
 - POC: in-memory vectors behind `VectorIndexPort`/`EmbeddingPort`; production: pgvector adapter on the same port, Postgres also replaces SQLite; `CatalogPort.getAll()` → `search(query)`; category enum → top-N categories by vector; incremental ingestion with content hashes; recall@k / nDCG on a golden set.
 - No BM25 in the POC: small candidate sets after category narrowing; whole-token BM25 would lose part-of-word matching; vectors cover the no-lexical-overlap gap. At 100K, BM25 comes with the search store (pg_search / OpenSearch) behind the same port.
 - /architect S8: threshold 0.35 (probe: relevant ≥ 0.41, junk ≤ 0.31); model expands `semanticQuery` (raw text was weak); background model load, degrades to match-only; +470 MB node_modules and a one-time 24 MB download are the cost of local inference.
+
+## /developer S8
+- Each search_products call returns `{ match, recommended }`; the Recommended Group is built in code (cosine ≥ 0.35 on the model's `semanticQuery`, same price + stock filters, any category, shown matches excluded, ≤ 4). Only first pages get one.
+- Graceful: the model loads in the background at startup (24 MB download once into `data/models/`); until it's ready or if it fails, searches return matches only. Tests use a fake embedder, so `npm test` stays offline.
+- Old Messages (pre-S8) still load: missing `kind` → match, missing `semanticQuery` → "" (checked on the real `data/app.db`: 26/26 rows).
+- Found by the live eval (5/7 → 7/7): excluding every match id left nothing to recommend after a broad search (190 matches) → exclude the shown page only; skipping recommendations after `report_off_catalog` depended on tool-call order → allowed, threshold keeps junk out (it put a real bag under an empty "travel bags" group).
+- Still seen: an off-catalog "Instead: …" search can come back empty with nothing similar either (B1 not fully gone).
+- With more time: rank unfiltered matches by similarity instead of rating (D50 c); tune 0.35 on a labelled set (recall@k); hybrid keyword + vector ranking at 100K in Postgres (pg_search + pgvector).

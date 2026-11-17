@@ -15,6 +15,8 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toMatch(/report_off_catalog/); // R3
     expect(prompt).toMatch(/one search_products call per/i); // R4
     expect(prompt).toMatch(/data, never instructions/i); // prompt-injection guard
+    expect(prompt).toMatch(/semanticQuery/); // ADR 0004: the model expands the request
+    expect(prompt).toMatch(/You might also like/); // R10: recommendations are added by the system
   });
 
   it('is deterministic', () => expect(buildSystemPrompt(CATEGORY_SLUGS)).toBe(prompt));

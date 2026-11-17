@@ -14,7 +14,7 @@ Probe (2026-11-17, `@huggingface/transformers@4.3.2`, `Xenova/all-MiniLM-L6-v2` 
 ## Decision
 - **Embeddings come from a local model** (all-MiniLM-L6-v2, in-process). Assumption: "gpt-6-luna only" covers the OpenAI models on the key, not a local embedder.
 - `search_products` gains a required **`semanticQuery`**: an expanded description of what fits, written by the model per Search Intent.
-- One call returns **`{ match, recommended | null }`**. Both are Product Groups, now with `kind: 'match' | 'recommended'`. `recommended` is built in code with no extra LLM step: cosine similarity on `semanticQuery`, the same stock and price filters, category ignored, every match id excluded, **minimum score 0.35**, at most 4. If nothing passes, it is `null`. It is skipped on Show-more pages and has no Show more of its own.
+- One call returns **`{ match, recommended | null }`**. Both are Product Groups, now with `kind: 'match' | 'recommended'`. `recommended` is built in code with no extra LLM step: cosine similarity on `semanticQuery`, the same stock and price filters, category ignored, the shown match page excluded, **minimum score 0.35**, at most 4. If nothing passes, it is `null`. It is skipped on Show-more pages and has no Show more of its own.
 - Ports: `EmbeddingPort.embed(texts)` and `VectorIndexPort.nearest({ vector, minPrice, maxPrice, excludeIds, minScore, k })`. The port takes the filters and `k`, so a pgvector adapter can push them into SQL. POC adapters: the local model and an in-memory index built by the pure `rankBySimilarity`.
 - **Lifecycle:** the model loads in the background at startup, and vectors are rebuilt when the catalog cache refreshes. If the model is still loading or failed, search returns only `match` and logs a warning; a turn never fails because of recommendations.
 
@@ -25,6 +25,11 @@ Probe (2026-11-17, `@huggingface/transformers@4.3.2`, `Xenova/all-MiniLM-L6-v2` 
 - **Always the top 4 / a relative threshold**: shows junk ("Touring" car for a flight) when nothing is similar.
 - **BM25**: fixes ranking within lexical matches, not requests with no lexical match. At 100K it comes with the search store.
 - **Postgres + pgvector now**: not needed for 194 vectors; the ports keep that swap local.
+
+## Amendment (2026-11-17, /developer S8 — D49, D50, after the first live eval)
+- **Exclude the shown page, not every match (D50).** A broad search ("something for the beach" → no category, no keywords, 190 matches) left nothing to recommend. Now a recommended Product may reappear on a later Show-more page of the matches.
+- **Off-catalog turns may get recommendations (D49).** Skipping them depended on tool-call order (the model sent `report_off_catalog` and the "Instead: …" search in one step). The related search has its own `semanticQuery` ("travel bags"), and the threshold keeps unrelated Products out; in the live run it put a real bag under an otherwise empty "travel bags" group.
+- Stored Messages from before S8 load with `kind: 'match'` and `semanticQuery: ""` (D46).
 
 ## Consequences
 - First start needs internet once (model download into `data/models/`). Tests use a fake `EmbeddingPort`, so they stay offline.

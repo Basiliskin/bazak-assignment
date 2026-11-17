@@ -1,4 +1,10 @@
-import type { ProductGroup, ReportOffCatalogInput, SearchProductsInput, TOOL_NAMES } from '@app/contracts';
+import type {
+  ProductGroup,
+  ReportOffCatalogInput,
+  SearchProductsInput,
+  SearchProductsOutput,
+  TOOL_NAMES,
+} from '@app/contracts';
 import type { UIDataTypes, UIMessage } from 'ai';
 
 type ToolName = (typeof TOOL_NAMES)[keyof typeof TOOL_NAMES];
@@ -8,7 +14,8 @@ type KeyedByToolName<T extends Record<ToolName, unknown>> = T;
 
 /** The two server tools as `useChat` sees them. */
 export type ShopTools = KeyedByToolName<{
-  search_products: { input: SearchProductsInput; output: ProductGroup };
+  /** Live: `{ match, recommended }`. Stored Messages come back as one ProductGroup per part (D48). */
+  search_products: { input: SearchProductsInput; output: SearchProductsOutput | ProductGroup };
   report_off_catalog: { input: ReportOffCatalogInput; output: { acknowledged: true } };
 }>;
 

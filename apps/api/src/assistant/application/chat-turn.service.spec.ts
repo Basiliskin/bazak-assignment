@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { product } from '../../../test/support/product.fixture.js';
 import { group, message } from '../../../test/support/message.fixture.js';
 import { CatalogService } from '../../catalog/application/catalog.service.js';
+import type { RecommendationService } from '../../catalog/application/recommendation.service.js';
+import { toProductCard } from '../../catalog/domain/to-product-card.js';
 import type { ConversationRepository } from '../../conversations/application/conversation.repository.js';
 import { appendMessage, createConversation } from '../../conversations/domain/conversation.js';
 import { ChatTurnService } from './chat-turn.service.js';
@@ -43,13 +45,22 @@ const fakeLlm = (script: (tools: LlmTurnRequest['tools']) => Promise<string>) =>
 
 const drain = (s: ChatStream) => new Response(s.body).text();
 
-const setup = (script: (tools: LlmTurnRequest['tools']) => Promise<string>, repo = new MemoryRepo()) => {
-  const catalog = new CatalogService({
-    getAll: async () => [
-      product({ id: 1, title: 'iPhone 9', price: 499 }),
-      product({ id: 2, title: 'Red Lipstick', price: 12, category: 'beauty' }),
-    ],
-  });
+const CATALOG = [
+  product({ id: 1, title: 'iPhone 9', price: 499 }),
+  product({ id: 2, title: 'Red Lipstick', price: 12, category: 'beauty' }),
+];
+
+/** Recommends Red Lipstick for anything — enough to see where Recommended Groups go. */
+const alwaysLipstick = {
+  recommend: async () => [toProductCard(CATALOG[1]!)],
+} as unknown as RecommendationService;
+
+const setup = (
+  script: (tools: LlmTurnRequest['tools']) => Promise<string>,
+  repo = new MemoryRepo(),
+  recommendations: RecommendationService | null = null,
+) => {
+  const catalog = new CatalogService({ getAll: async () => CATALOG }, recommendations);
   const { llm, requests } = fakeLlm(script);
   let tick = 0;
   const service = new ChatTurnService(repo, catalog, llm, {
@@ -101,8 +112,48 @@ describe('ChatTurnService', () => {
       return '';
     });
     await drain(await service.run({ conversationId: CONV, message: { id: 'u1', text: 'cheap stuff' } }));
-    expect(result?.products.map((p) => p.id)).toEqual([2]);
-    expect(result?.total).toBe(1);
+    expect(result?.match.products.map((p) => p.id)).toEqual([2]);
+    expect(result?.match.total).toBe(1);
+    expect(result?.recommended).toBeNull();
+  });
+
+  it('returns and saves a Recommended Group right after its match group (ADR 0004)', async () => {
+    let result: Awaited<ReturnType<LlmTurnRequest['tools']['searchProducts']>> | undefined;
+    const { service, repo } = setup(
+      async (tools) => {
+        result = await tools.searchProducts(query({ label: 'Phones', semanticQuery: 'phones' }));
+        return 'Phones.';
+      },
+      undefined,
+      alwaysLipstick,
+    );
+    await drain(await service.run({ conversationId: CONV, message: { id: 'u1', text: 'a phone' } }));
+    expect(result?.recommended?.products.map((p) => p.id)).toEqual([2]);
+    const groups = (await repo.get(CONV))?.messages[1]?.productGroups;
+    expect(groups?.map((g) => [g.kind, g.label])).toEqual([
+      ['match', 'Phones'],
+      ['recommended', 'You might also like · Phones'],
+    ]);
+  });
+
+  it('recommends for the related "Instead: …" search (D49) but never on a "Show more" page', async () => {
+    const { service, repo } = setup(
+      async (tools) => {
+        await tools.reportOffCatalog({ request: 'flights' });
+        await tools.searchProducts(query({ label: 'Instead: travel bags' }));
+        await tools.searchProducts(query({ label: 'Page 2', offset: 4 }));
+        return 'We don’t sell flights.';
+      },
+      undefined,
+      alwaysLipstick,
+    );
+    await drain(await service.run({ conversationId: CONV, message: { id: 'u1', text: 'a flight' } }));
+    const groups = (await repo.get(CONV))?.messages[1]?.productGroups;
+    expect(groups?.map((g) => [g.kind, g.label])).toEqual([
+      ['match', 'Instead: travel bags'],
+      ['recommended', 'You might also like · Instead: travel bags'],
+      ['match', 'Page 2'],
+    ]);
   });
 
   it('records off-catalog reports on the assistant Message', async () => {

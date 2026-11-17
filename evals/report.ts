@@ -48,7 +48,7 @@ export function renderEvalSection(run: {
     '',
     `\`npm run eval\` · model \`${run.model}\` · real DummyJSON Catalog · ${run.ranAt} · **${passed}/${run.results.length} cases passed**`,
     '',
-    'Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · reply has text.',
+    'Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · reply has text.',
     '',
     '| Case | Request | Groups | Checks | Time |',
     '|---|---|---|---|---|',

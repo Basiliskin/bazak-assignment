@@ -9,6 +9,7 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../apps/api/src/app.module.js';
 import { CatalogPort } from '../apps/api/src/catalog/application/catalog.port.js';
+import { RecommendationService } from '../apps/api/src/catalog/application/recommendation.service.js';
 import type { Product } from '../apps/api/src/catalog/domain/product.js';
 import { APP_CONFIG, loadConfig } from '../apps/api/src/shared/config/config.module.js';
 import type { AppConfig } from '../apps/api/src/shared/config/app-config.js';
@@ -86,6 +87,7 @@ describe(`live eval (${EVAL_CASES.length} cases)`, () => {
     await app.listen(0);
     baseUrl = (await app.getUrl()).replace('[::1]', 'localhost');
     catalog = await app.get(CatalogPort).getAll(); // the same cached Catalog the tools search
+    await app.get(RecommendationService).warmUp(); // embeddings ready before the first case (ADR 0004)
   });
 
   afterAll(async () => {

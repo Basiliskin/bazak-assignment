@@ -66,38 +66,68 @@ export type ProductListQuery = z.infer<typeof ProductListQuerySchema>;
 
 // ── Assistant tools (the LLM's structured query) ───────────────────────────────
 
+const searchQueryFields = {
+  label: z.string().min(1).describe('Short heading for this Product Group, e.g. "Phones under $500"'),
+  category: CategorySlugSchema.nullable().describe('Exact category slug, or null to search all'),
+  keywords: z
+    .array(z.string().min(1))
+    .max(5)
+    .describe('Single words matched against title, description, brand, tags'),
+  semanticQuery: z
+    .string()
+    .min(1)
+    .describe(
+      'What would fit, written out for a similarity search: product types, uses and style, e.g. "summer beach items: swimwear, sunglasses, sandals, beach bag"',
+    ),
+  minPrice: z.number().nonnegative().nullable(),
+  maxPrice: z.number().positive().nullable(),
+  sortBy: z.enum(SORT_OPTIONS),
+  offset: z.number().int().nonnegative().describe('For "show more": number of Products already shown'),
+  confidence: z.enum(['clear', 'guessed']),
+  assumption: z
+    .string()
+    .nullable()
+    .describe('Required when confidence is "guessed": what the vague request was taken to mean'),
+};
+
+const hasAssumptionWhenGuessed = (q: { confidence: 'clear' | 'guessed'; assumption: string | null }) =>
+  q.confidence === 'clear' || !!q.assumption;
+const ASSUMPTION_REQUIRED = {
+  message: 'assumption is required when confidence is "guessed"',
+  path: ['assumption'],
+};
+
+/** The tool input the model must fill (strict: `semanticQuery` is required). */
 export const SearchProductsInputSchema = z
-  .object({
-    label: z.string().min(1).describe('Short heading for this Product Group, e.g. "Phones under $500"'),
-    category: CategorySlugSchema.nullable().describe('Exact category slug, or null to search all'),
-    keywords: z
-      .array(z.string().min(1))
-      .max(5)
-      .describe('Single words matched against title, description, brand, tags'),
-    minPrice: z.number().nonnegative().nullable(),
-    maxPrice: z.number().positive().nullable(),
-    sortBy: z.enum(SORT_OPTIONS),
-    offset: z.number().int().nonnegative().describe('For "show more": number of Products already shown'),
-    confidence: z.enum(['clear', 'guessed']),
-    assumption: z
-      .string()
-      .nullable()
-      .describe('Required when confidence is "guessed": what the vague request was taken to mean'),
-  })
-  .refine((q) => q.confidence === 'clear' || !!q.assumption, {
-    message: 'assumption is required when confidence is "guessed"',
-    path: ['assumption'],
-  });
+  .object(searchQueryFields)
+  .refine(hasAssumptionWhenGuessed, ASSUMPTION_REQUIRED);
 export type SearchProductsInput = z.infer<typeof SearchProductsInputSchema>;
 
-/** Product Group: the result of one search_products call = one Search Intent. */
+/** A query as stored in a Message. Messages saved before S8 have no `semanticQuery` (D46) — read as "". */
+const StoredSearchQuerySchema = z
+  .object({ ...searchQueryFields, semanticQuery: z.string().default('') })
+  .refine(hasAssumptionWhenGuessed, ASSUMPTION_REQUIRED);
+
+/** `match` = keyword search result; `recommended` = similar Products ("You might also like", ADR 0004). */
+export const PRODUCT_GROUP_KINDS = ['match', 'recommended'] as const;
+export type ProductGroupKind = (typeof PRODUCT_GROUP_KINDS)[number];
+
+/** Product Group: the result of one search_products call = one Search Intent (or its Recommended Group). */
 export const ProductGroupSchema = z.object({
+  kind: z.enum(PRODUCT_GROUP_KINDS).default('match'), // pre-S8 Messages have no kind (D46)
   label: z.string(),
-  query: SearchProductsInputSchema,
+  query: StoredSearchQuerySchema,
   products: z.array(ProductCardSchema), // ≤ 4 (R7)
   total: z.number().int().nonnegative(), // total matches; total - offset - products.length = "N more"
 });
 export type ProductGroup = z.infer<typeof ProductGroupSchema>;
+
+/** What one search_products call returns: the keyword matches plus, when something is similar enough, a Recommended Group. */
+export const SearchProductsOutputSchema = z.object({
+  match: ProductGroupSchema,
+  recommended: ProductGroupSchema.nullable(),
+});
+export type SearchProductsOutput = z.infer<typeof SearchProductsOutputSchema>;
 
 export const ReportOffCatalogInputSchema = z.object({
   request: z.string().min(1).describe('What the Shopper asked for that the shop does not sell'),

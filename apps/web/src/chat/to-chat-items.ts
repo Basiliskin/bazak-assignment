@@ -1,10 +1,20 @@
 import {
   ProductGroupSchema,
+  SearchProductsOutputSchema,
   ReportOffCatalogInputSchema,
   type ProductGroup,
   type ReportOffCatalogInput,
 } from '@app/contracts';
 import type { ChatItem, ShopUIMessage } from './chat-types';
+
+/** A live output is `{ match, recommended }`; a stored one is a single group (D48). Anything else → nothing. */
+function toGroups(output: unknown): ProductGroup[] {
+  const live = SearchProductsOutputSchema.safeParse(output);
+  if (live.success)
+    return live.data.recommended ? [live.data.match, live.data.recommended] : [live.data.match];
+  const stored = ProductGroupSchema.safeParse(output);
+  return stored.success ? [stored.data] : [];
+}
 
 /**
  * `useChat` messages → view model (pure). Tool outputs are validated against the contracts —
@@ -24,8 +34,7 @@ export function toChatItems(messages: readonly ShopUIMessage[]): ChatItem[] {
           if (part.text.trim()) texts.push(part.text.trim());
         } else if (part.type === 'tool-search_products') {
           if (part.state === 'output-available') {
-            const group = ProductGroupSchema.safeParse(part.output);
-            if (group.success) productGroups.push(group.data);
+            productGroups.push(...toGroups(part.output));
           } else if (part.state === 'input-streaming' || part.state === 'input-available') {
             searching.push(part.input?.label || 'products');
           }

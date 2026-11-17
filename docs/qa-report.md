@@ -19,6 +19,7 @@
 | AC3.7 / R8 no results | ✅ `filter-products.spec.ts` (total 0) · `ProductGroup` empty state · smoke test ("cheaper ones" → "none cheaper than $19.99") |
 | AC3.8 Catalog down | ✅ `dummyjson.catalog.spec.ts`, `catalog.service.spec.ts`, `products.e2e-spec.ts` 503 · smoke test (API pointed at a dead host → "can't search right now") |
 | AC3.9 / R9 out of stock | ✅ `filter-products.spec.ts` · every eval case |
+| AC3.10 / R10 Recommended Group | ✅ `rank-by-similarity.spec.ts`, `recommendation.service.spec.ts`, `catalog.service.spec.ts`, `chat-turn.service.spec.ts`, `chat.e2e-spec.ts` (fake embedder), `MessageBubble.spec.tsx`, `chat-mapping.spec.ts` · eval `beach` + R10 on every case (S8) |
 | AC4.1 card fields, badge | ✅ `MessageBubble.spec.tsx` |
 | AC4.2 label + "N more" | ✅ `MessageBubble.spec.tsx`, `product-view.spec.ts` |
 | AC4.3 details popup | ✅ `ChatView.spec.tsx` (Esc / ✕ / backdrop, focus returns) |
@@ -86,18 +87,19 @@ Clean: no framework imports in `domain/` or `application/`; thin controllers; no
 <!-- eval:start -->
 ## Live eval
 
-`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 15:54 · **6/6 cases passed**
+`npm run eval` · model `gpt-6-luna` · real DummyJSON Catalog · 2026-11-17 17:32 · **7/7 cases passed**
 
-Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · reply has text.
+Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · reply has text.
 
 | Case | Request | Groups | Checks | Time |
 |---|---|---|---|---|
-| plain | show me smartphones | Smartphones (4 of 15) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R4 | 4.0 s |
-| price | a phone under $500 | Phones under $500 (4 of 12) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R4 · ✅ R6 | 4.4 s |
-| ambiguous | something cheap and cool | Affordable cool sunglasses (4 of 5) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R2 | 4.7 s |
-| off-catalog | a flight to Tokyo | — | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R3 | 3.2 s |
-| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); Lipstick (1 of 1) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R4 · ✅ R6 | 4.5 s |
-| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men's watches — cheaper options (2 of 2) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R4 · ✅ R5 | 8.1 s |
+| plain | show me smartphones | Smartphones (4 of 15); You might also like · Smartphones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 3.8 s |
+| price | a phone under $500 | Phones under $500 (4 of 12) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.0 s |
+| ambiguous | something cheap and cool | Cheap, cool finds (4 of 116); You might also like · Cheap, cool finds (2 of 2) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 8.7 s |
+| off-catalog | a flight to Tokyo | Instead: Tokyo travel essentials (0 of 0) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 6.1 s |
+| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); You might also like · Phones under $500 (3 of 3); Lipsticks (1 of 1); You might also like · Lipsticks (3 of 3) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 4.3 s |
+| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men’s watches — cheaper ones (2 of 2); You might also like · Men’s watches — cheaper ones (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 7.6 s |
+| beach | something for the beach | Beach essentials (4 of 190); You might also like · Beach essentials (4 of 4) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ similar | 4.3 s |
 
 No failures.
 <!-- eval:end -->

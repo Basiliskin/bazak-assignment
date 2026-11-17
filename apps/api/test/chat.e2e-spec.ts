@@ -1,8 +1,10 @@
+import type { SearchProductsOutput } from '@app/contracts';
 import type { INestApplication } from '@nestjs/common';
 import type { LanguageModel } from 'ai';
 import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationRepository } from '../src/conversations/application/conversation.repository.js';
+import { RecommendationService } from '../src/catalog/application/recommendation.service.js';
 import { CatalogUnavailableError } from '../src/catalog/domain/catalog.errors.js';
 import type { CatalogPort } from '../src/catalog/application/catalog.port.js';
 import { createTestApp } from './support/create-test-app.js';
@@ -22,6 +24,7 @@ const phonesQuery = {
   label: 'Phones under $500',
   category: 'smartphones',
   keywords: [],
+  semanticQuery: 'smartphones and mobile phones',
   minPrice: null,
   maxPrice: 500,
   sortBy: 'price-desc',
@@ -62,12 +65,10 @@ describe('POST /api/chat', () => {
     expect(types.filter((t) => t === 'text-delta')).toHaveLength(2);
     expect(types.at(-1)).toBe('finish');
 
-    const output = events.find((e) => e.type === 'tool-output-available')?.output as {
-      products: { id: number; price: number }[];
-      total: number;
-    };
-    expect(output.products.map((p) => p.id)).toEqual([2, 3]); // ≤ $500, in stock (R6, R9)
-    expect(output.total).toBe(2);
+    const output = events.find((e) => e.type === 'tool-output-available')?.output as SearchProductsOutput;
+    expect(output.match.products.map((p) => p.id)).toEqual([2, 3]); // ≤ $500, in stock (R6, R9)
+    expect(output.match.total).toBe(2);
+    expect(output.recommended).toBeNull(); // nothing similar left within $500 (R10)
 
     const saved = await app.get(ConversationRepository).get(CONV);
     expect(saved?.title).toBe('a phone under $500');
@@ -77,6 +78,49 @@ describe('POST /api/chat', () => {
 
     const reloaded = await request(app.getHttpServer()).get(`/api/conversations/${CONV}`).expect(200);
     expect(reloaded.body.messages[1].productGroups[0].label).toBe('Phones under $500');
+  });
+
+  it('streams a Recommended Group next to the matches and persists it (ADR 0004, R10)', async () => {
+    const beachCatalog = [
+      product({ id: 1, title: 'Beach Sunglasses', description: 'sun and beach', category: 'sunglasses' }),
+      product({ id: 2, title: 'Summer Dress', description: 'for the beach', category: 'tops' }),
+      product({ id: 3, title: 'iPhone 9', price: 549 }),
+    ];
+    const beach = {
+      ...phonesQuery,
+      label: 'Beach tops',
+      category: 'tops',
+      maxPrice: null,
+      semanticQuery: 'beach summer sun',
+    };
+    const model = scriptedModel(
+      toolCallStep([{ id: 'c1', name: 'search_products', input: beach }]),
+      textStep('A summer dress, and a few things that go with it.'),
+    );
+    app = await createTestApp({ catalog: { getAll: async () => beachCatalog }, model });
+    await app.get(RecommendationService).warmUp();
+    const res = await request(app.getHttpServer())
+      .post('/api/chat')
+      .send({ conversationId: CONV, message: { id: 'u1', text: 'something for the beach' } })
+      .buffer(true)
+      .parse((r, cb) => {
+        let d = '';
+        r.on('data', (c: Buffer) => (d += c.toString()));
+        r.on('end', () => cb(null, d));
+      });
+
+    const output = parseSse(res.body as string).find((e) => e.type === 'tool-output-available')
+      ?.output as SearchProductsOutput;
+    expect(output.match.products.map((p) => p.id)).toEqual([2]);
+    expect(output.recommended?.products.map((p) => p.id)).toEqual([1]); // not the match, not the phone
+
+    const reloaded = await request(app.getHttpServer()).get(`/api/conversations/${CONV}`).expect(200);
+    expect(
+      reloaded.body.messages[1].productGroups.map((g: { kind: string; label: string }) => [g.kind, g.label]),
+    ).toEqual([
+      ['match', 'Beach tops'],
+      ['recommended', 'You might also like · Beach tops'],
+    ]);
   });
 
   it('runs two searches for a multi-intent request (AC3.5)', async () => {
@@ -96,7 +140,8 @@ describe('POST /api/chat', () => {
     );
     await send(model, 'a phone under $500 and an iphone');
     const saved = await app.get(ConversationRepository).get(CONV);
-    expect(saved?.messages[1]?.productGroups.map((g) => g.label)).toEqual(['Phones under $500', 'Lipsticks']);
+    const matches = saved?.messages[1]?.productGroups.filter((g) => g.kind === 'match');
+    expect(matches?.map((g) => g.label)).toEqual(['Phones under $500', 'Lipsticks']); // one per intent (R4)
   });
 
   it('rejects a guessed search without an assumption and lets the model retry (R2)', async () => {

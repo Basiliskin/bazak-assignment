@@ -12,6 +12,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3001),
   DATABASE_PATH: z.string().min(1).default('data/app.db'),
   DUMMYJSON_URL: z.url().default('https://dummyjson.com'),
+  MODEL_CACHE_DIR: z.string().min(1).default('data/models'),
 });
 
 export interface AppConfig {
@@ -20,6 +21,8 @@ export interface AppConfig {
   readonly port: number;
   readonly databasePath: string;
   readonly dummyJsonUrl: string;
+  /** Where the local embedding model is downloaded to (ADR 0004). */
+  readonly modelCacheDir: string;
 }
 
 export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; errors: string[] };
@@ -45,6 +48,7 @@ export function parseConfig(env: Record<string, string | undefined>, rootDir: st
           ? e.DATABASE_PATH
           : join(rootDir, e.DATABASE_PATH),
       dummyJsonUrl: e.DUMMYJSON_URL,
+      modelCacheDir: isAbsolute(e.MODEL_CACHE_DIR) ? e.MODEL_CACHE_DIR : join(rootDir, e.MODEL_CACHE_DIR),
     },
   };
 }
