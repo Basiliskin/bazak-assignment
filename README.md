@@ -89,3 +89,21 @@ What gets through:
 - **Threshold:** whether 0.35 is right beyond these 7 cases.
 - **The real embedding model download:** tests use a fake embedder.
 - **Layout:** checked by hand in Chrome; there's no Playwright.
+
+## Known limitations
+
+The weakest part is relevance. Results are only as good as the category and keywords the model puts in the tool, and only the beach eval case checks meaning. After the Q1 fix, a broad search fills the match page with the most similar Products, so the Recommended Group is often short and can show what "Show more" would show next. Off-catalog replies sometimes add an "Instead: …" search that comes back empty.
+
+It's also slow: about 5–6 s per turn with tools, and "Show more" costs another model call because it goes through the LLM instead of a paging endpoint. The local embedding model adds about 470 MB to `node_modules`. If it fails to load, every search retries and logs a warning. In a multi-intent turn, a recommendation can repeat a Product from the other intent. A bad API key gets the same "try again" message as a temporary failure, so Retry can't help, and `minPrice > maxPrice` isn't rejected and just returns an empty group. Scope cuts: no auth (one shared Conversation list), English and USD only, no stop button or rename, and titles are the first ~40 characters.
+
+With another week, in this order:
+1. Run each eval case N times and report a pass rate, and add cases for 0 results, Show more and prompt injection in Product text.
+2. Tune the 0.35 threshold on a labelled set (recall@k) and check relevance on every case.
+3. Fix the small ones: empty off-catalog groups, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
+4. Add Playwright tests for streaming, cards and reload.
+5. Add auth with a `shopperId`, a stop button, and code-splitting.
+6. For a large catalog, move to Postgres with pgvector and pg_search (hybrid search) behind the same ports.
+
+## How this was built
+
+I built it with Claude Code as a chain of project skills in `.claude/skills/`: `/product` → `/architect` → `/designer` → `/developer` (one slice at a time, S0–S8) → `/qa` → `/readme` → `/interview`. They share one `PROTOCOL.md`: the skill proposes 2–3 options with trade-offs, I pick, and the choice is recorded. `docs/ai-log/SESSION-LOG.md` has every decision with the options I rejected; `docs/ai-log/CONVERSATION.md` is the raw prompt log, written by hooks with secrets redacted. ADRs are in `docs/adr/`.

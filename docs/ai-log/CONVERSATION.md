@@ -2535,3 +2535,112 @@
 ### 2026-11-17T15:52:25.445Z : /readme — user
 
 > b
+
+### 2026-11-17T15:52:39.548Z : /readme — assistant
+
+> ✅ Done: I added the **Evaluation** section to `README.md` using draft (b) as written. I also changed the Setup table to say 7 live cases and about 40 s. It's committed as `eb9cfc6`, and the secret-key scan came back clean.
+> 
+> Still to write: **Known limitations** and **How this was built**.
+> 
+> ➡️ Next step: /readme
+> Prompt to paste:
+> `/readme limitations` (Section 6 plus How this was built. Where it underperforms today: Q1 leaves a shorter Recommended Group, B1 empty off-catalog groups, Q2 retries a failed model load on every search, Q3 duplicates across intents, A5–A7, B2. With another week: eval pass rate over N runs and more cases, recall@k for the threshold, pgvector/hybrid search at scale, auth with a `shopperId`, Playwright, a stop-generation button)
+
+### 2026-11-17T15:52:47.202Z : /readme — user
+
+> /readme limitations
+
+### 2026-11-17T15:53:03.915Z : /readme — assistant
+
+> I checked each open item against the code, and they're all still there. These are the key points for **Known limitations** and **How this was built**. Please confirm, cut or add.
+> 
+> **Where it underperforms today**
+> 1. **Relevance depends on the model's tool input.** If the model picks the wrong category or keywords, the results are wrong, and only the beach case checks meaning. A broad search fills the match page with the most similar Products, so the Recommended Group is often short (beach shows 1) and can show what "Show more" would show next (Q1).
+> 2. **Off-catalog requests** sometimes add an "Instead: …" search that comes back empty (B1).
+> 3. **Latency:** about 5–6 s per turn with tools. "Show more" also costs a model call (~5 s) because it goes through the LLM, not a paging endpoint.
+> 4. **Recommendation edge cases:**
+>    - Q2: if the embedding model fails to load (for example, the first start is offline), every search tries again and logs a warning.
+>    - Q3: in a multi-intent turn, a recommendation can repeat a Product from the other intent.
+>    - It also adds about 470 MB to `node_modules`.
+> 5. **Small gaps:**
+>    - A key or config error shows the same "try again" message as a temporary failure, so Retry can't fix it (B2).
+>    - `minPrice > maxPrice` isn't rejected and gives an empty group (A7).
+>    - The chat stream has no `error` listener (A5).
+>    - `ChatTurnService` depends on `CatalogService` directly instead of a port (A6).
+> 6. **Product scope:** no auth (one shared Conversation list), English and USD only, no stop-generation button, no rename, titles are just the first ~40 characters, and the web bundle is over 500 kB.
+> 
+> **With another week (my order)**
+> 1. Run each eval case N times and report a pass rate, and add cases: 0 results, Show more, prompt injection in Product text.
+> 2. Build a labelled set to tune the 0.35 threshold with recall@k, and check relevance on every case.
+> 3. Fix B1, B2, A7 and Q2 (back off after a failed model load). Each is small.
+> 4. Playwright E2E for streaming, cards and reload.
+> 5. Auth with a `shopperId` column, a stop-generation button, and code-splitting the bundle.
+> 6. At a bigger catalog size: Postgres with pgvector plus pg_search (hybrid) behind the same ports, and `CatalogPort.search` instead of `getAll`.
+> 
+> **How this was built** (short)
+> - `docs/ai-log/SESSION-LOG.md` is every decision with the options I was offered and what I picked. `CONVERSATION.md` is the raw prompt log, written by hooks with secrets redacted.
+> - `.claude/skills/` has the chain I used: `/product` → `/architect` → `/designer` → `/developer S0–S8` → `/qa` → `/readme` → `/interview`, with a shared `PROTOCOL.md`: propose 2–3 options, I decide, everything gets recorded.
+> - ADRs are in `docs/adr/` and interview questions are in `docs/interview-prep.md`.
+> 
+> **Question:** the README is getting long. Should I drop item 5 (the small A5–A7/B2 gaps) and keep only items 1–4 and 6? I recommend keeping just B2 and A7 from item 5, since a user can actually see those.
+
+### 2026-11-17T15:53:12.126Z : /readme — user
+
+> yes
+
+### 2026-11-17T15:53:26.752Z : /readme — assistant
+
+> I'll drop A5 and A6 and keep B2 and A7, since a user can see those. Here are the two drafts. Both include **How this was built**.
+> 
+> **(a) Terse bullets**
+> 
+> ```markdown
+> ## Known limitations
+> 
+> - **Relevance depends on the model's tool input.** A wrong category or keyword gives wrong results, and only the beach eval case checks meaning. On a broad search the match page takes the most similar Products, so the Recommended Group is often short and can show what "Show more" would show next.
+> - **Off-catalog** replies sometimes add an "Instead: …" search that comes back empty.
+> - **Latency:** ~5–6 s per turn with tools. "Show more" goes through the model too (~5 s) instead of a paging endpoint.
+> - **Recommendations:** after a failed model load (e.g. offline first start), every search retries and logs a warning; in a multi-intent turn, a recommendation can repeat a Product from the other intent; the local model adds ~470 MB to `node_modules`.
+> - **Errors and input:** a bad key gets the same "try again" message as a temporary failure, so Retry can't fix it. `minPrice > maxPrice` isn't rejected and returns an empty group.
+> - **Scope:** no auth (one shared Conversation list), English and USD only, no stop button or rename, titles are the first ~40 characters, web bundle > 500 kB.
+> 
+> With another week:
+> 1. Run each eval case N times for a pass rate; add cases (0 results, Show more, prompt injection in Product text).
+> 2. Tune the 0.35 threshold on a labelled set (recall@k) and check relevance on every case.
+> 3. Fix the small ones: empty off-catalog groups, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
+> 4. Playwright tests for streaming, cards and reload.
+> 5. Auth with a `shopperId`, a stop button, code-splitting.
+> 6. For a large catalog: Postgres with pgvector + pg_search (hybrid search) behind the same ports.
+> 
+> ## How this was built
+> 
+> I built it with Claude Code as a chain of project skills in `.claude/skills/`: `/product` → `/architect` → `/designer` → `/developer` (one slice at a time, S0–S8) → `/qa` → `/readme` → `/interview`. They share one `PROTOCOL.md`: the skill proposes 2–3 options with trade-offs, I pick, and the choice is recorded. `docs/ai-log/SESSION-LOG.md` has every decision with the options I rejected; `docs/ai-log/CONVERSATION.md` is the raw prompt log, written by hooks with secrets redacted. ADRs are in `docs/adr/`.
+> ```
+> 
+> **(b) Short prose**
+> 
+> ```markdown
+> ## Known limitations
+> 
+> The weakest part is relevance. Results are only as good as the category and keywords the model puts in the tool, and only the beach eval case checks meaning. After the Q1 fix, a broad search fills the match page with the most similar Products, so the Recommended Group is often short and can show what "Show more" would show next. Off-catalog replies sometimes add an "Instead: …" search that comes back empty.
+> 
+> It's also slow: about 5–6 s per turn with tools, and "Show more" costs another model call because it goes through the LLM instead of a paging endpoint. The local embedding model adds about 470 MB to `node_modules`. If it fails to load, every search retries and logs a warning. In a multi-intent turn, a recommendation can repeat a Product from the other intent. A bad API key gets the same "try again" message as a temporary failure, so Retry can't help, and `minPrice > maxPrice` isn't rejected and just returns an empty group. Scope cuts: no auth (one shared Conversation list), English and USD only, no stop button or rename, and titles are the first ~40 characters.
+> 
+> With another week, in this order:
+> 1. Run each eval case N times and report a pass rate, and add cases for 0 results, Show more and prompt injection in Product text.
+> 2. Tune the 0.35 threshold on a labelled set (recall@k) and check relevance on every case.
+> 3. Fix the small ones: empty off-catalog groups, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
+> 4. Add Playwright tests for streaming, cards and reload.
+> 5. Add auth with a `shopperId`, a stop button, and code-splitting.
+> 6. For a large catalog, move to Postgres with pgvector and pg_search (hybrid search) behind the same ports.
+> 
+> ## How this was built
+> 
+> I built it with Claude Code as a chain of project skills in `.claude/skills/`: `/product` → `/architect` → `/designer` → `/developer` (one slice at a time, S0–S8) → `/qa` → `/readme` → `/interview`. They share one `PROTOCOL.md`: the skill proposes 2–3 options with trade-offs, I pick, and the choice is recorded. `docs/ai-log/SESSION-LOG.md` has every decision with the options I rejected; `docs/ai-log/CONVERSATION.md` is the raw prompt log, written by hooks with secrets redacted. ADRs are in `docs/adr/`.
+> ```
+> 
+> I recommend **(b)**. It matches the style of the other sections, and the numbered "another week" list keeps the order of priority clear.
+
+### 2026-11-17T15:53:28.910Z : /readme — user
+
+> b

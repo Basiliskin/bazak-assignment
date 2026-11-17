@@ -583,3 +583,16 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** (b) prose; Setup table → 7 cases, ~40 s.
 **Artifacts:** `README.md` (Evaluation; Setup table line).
 **Next step:** `/readme limitations` (Section 6 + How this was built, still open).
+
+## 2026-11-17 18:50 : /readme — Section 6 Known limitations + How this was built
+
+**User input:**
+> /readme limitations
+> yes
+> b
+
+**Found:** re-checked open items in code — Q2 (`recommendation.service.ts` retries on every search), A5 (`chat.controller.ts` pipe without error listener), A6 (`ChatTurnService` → `CatalogService`), A7 (no `minPrice > maxPrice` refine in contracts); B1, B2, Q3 still open per qa-report.
+**Options offered:** drop the internal gaps A5/A6, keep the user-visible B2/A7 (rec., yes); drafts (a) bullets / (b) prose (rec.).
+**Decision:** (b) prose; A5/A6 left out of the README (still in `docs/qa-report.md`).
+**Artifacts:** `README.md` (Known limitations, How this was built) — all six sections now written.
+**Next step:** `/interview`
