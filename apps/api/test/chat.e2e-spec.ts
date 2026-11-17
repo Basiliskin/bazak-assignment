@@ -179,7 +179,7 @@ describe('POST /api/chat', () => {
       .expect(200);
     const prompt = model.doStreamCalls[2]?.prompt ?? [];
     expect(prompt.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'system', 'user']);
-    expect(JSON.stringify(prompt[3])).toContain('#2 Oppo F19 $399');
+    expect(JSON.stringify(prompt[3])).toContain('#2 \\"Oppo F19\\" $399');
     expect(JSON.stringify(prompt[2])).not.toContain('#2');
   });
 

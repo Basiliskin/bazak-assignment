@@ -68,6 +68,20 @@ describe('DummyJsonCatalog', () => {
     await expect(catalog.getAll()).rejects.toBeInstanceOf(CatalogUnavailableError);
   });
 
+  it('gives up on a hung DummyJSON after the timeout (CatalogUnavailable, not a stalled turn)', async () => {
+    const hang: typeof fetch = (_url, init) =>
+      new Promise((_resolve, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason)),
+      );
+    const catalog = new DummyJsonCatalog({
+      baseUrl: 'https://dj.test',
+      ttlMs: 1000,
+      timeoutMs: 20,
+      fetchFn: hang,
+    });
+    await expect(catalog.getAll()).rejects.toBeInstanceOf(CatalogUnavailableError);
+  });
+
   it('retries on the next call after a failure', async () => {
     const { catalog, fetchFn } = setup();
     fetchFn.mockRejectedValueOnce(new Error('down')).mockResolvedValueOnce(okResponse([1]));

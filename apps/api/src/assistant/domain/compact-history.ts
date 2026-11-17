@@ -14,7 +14,7 @@ const range = (g: ProductGroup): string => {
 const describeSearch = ({ query: q }: ProductGroup): string =>
   [
     q.category ? `category ${q.category}` : 'all categories',
-    q.keywords.length ? `keywords ${q.keywords.join(' ')}` : null,
+    q.keywords.length ? `keywords ${q.keywords.map(quote).join(' ')}` : null,
     q.minPrice !== null ? `price ≥ $${q.minPrice}` : null,
     q.maxPrice !== null ? `price ≤ $${q.maxPrice}` : null,
     `sort ${q.sortBy}`,
@@ -22,9 +22,12 @@ const describeSearch = ({ query: q }: ProductGroup): string =>
     .filter(Boolean)
     .join(', ');
 
+/** Catalog titles, model labels and Shopper text are quoted as JSON strings: they stay data inside a system note. */
+const quote = (text: string): string => JSON.stringify(text);
+
 const groupNote = (g: ProductGroup): string =>
-  `Shown in the reply above — "${g.label}" (${range(g)}; search: ${describeSearch(g)}): ${
-    g.products.map((p) => `#${p.id} ${p.title} $${p.price}`).join(', ') || 'none'
+  `Shown in the reply above — ${quote(g.label)} (${range(g)}; search: ${describeSearch(g)}): ${
+    g.products.map((p) => `#${p.id} ${quote(p.title)} $${p.price}`).join(', ') || 'none'
   }`;
 
 const toHistory = (m: Message): HistoryMessage[] => [
@@ -32,7 +35,7 @@ const toHistory = (m: Message): HistoryMessage[] => [
   ...m.productGroups.map((g): HistoryMessage => ({ role: 'note', text: groupNote(g) })),
   ...m.offCatalog.map((o): HistoryMessage => ({
     role: 'note',
-    text: `Reported as not sold here: ${o.request}`,
+    text: `Reported as not sold here: ${quote(o.request)}`,
   })),
 ];
 

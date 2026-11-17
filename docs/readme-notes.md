@@ -70,3 +70,9 @@
 - Trade-off: one run per case; a pass is a smoke signal, not a pass rate. Wording quality is not checked.
 - Found by the eval: "a flight to Tokyo" makes a related search ("Travel bags…") that returns 0 Products — an empty group under a correct refusal. Allowed by the rules (reply explains), but noisy.
 - With more time: repeat each case N times and report a pass rate, an LLM judge for wording/Assumption quality, more cases (0 results, show more, prompt injection in Product text).
+
+## /qa
+- Verified: all suites green (api 105, web 50, evals 22), live eval 6/6 twice, smoke test of streaming, cards, ambiguous/off-catalog/multi-intent/follow-up, refresh, switching chats, Catalog down, invalid key. Full map: `docs/qa-report.md`.
+- Fixed in /qa: Product titles and Shopper text in system-role history notes are now JSON-quoted (prompt-injection hardening); 5 s timeout on the DummyJSON fetch; root `npm run build` works on a clean clone.
+- What the tests would *not* catch: reply wording and tone, whether a guessed Assumption is sensible, layout and visual regressions, model variance (each eval case runs once), deleting the SQLite file while the API runs (no crash, but the data is gone on restart).
+- With more time: the widget shell (US6b/S7, a Should; `/` is a placeholder page); a distinct message for auth/config errors instead of "try again"; reject `minPrice > maxPrice` in the tool schema; `stream.pipeline` with an error callback in the chat controller; a narrow search port instead of `ChatTurnService` depending on `CatalogService`; a test for "empty message not sent" (AC1.2); a prompt rule against empty related groups on off-catalog replies (seen in 2 of 3 eval runs).

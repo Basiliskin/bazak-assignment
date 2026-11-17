@@ -4,9 +4,13 @@ import { CatalogUnavailableError } from '../domain/catalog.errors.js';
 import type { Product } from '../domain/product.js';
 import { parseCatalogResponse } from './parse-catalog.js';
 
+const DEFAULT_TIMEOUT_MS = 5000;
+
 export interface DummyJsonCatalogOptions {
   baseUrl: string;
   ttlMs: number;
+  /** A hung DummyJSON must not stall every chat turn behind the shared in-flight load. */
+  timeoutMs?: number;
   now?: () => number;
   fetchFn?: typeof fetch;
   onWarn?: (message: string) => void;
@@ -38,7 +42,9 @@ export class DummyJsonCatalog extends CatalogPort {
 
   private async load(): Promise<readonly Product[]> {
     try {
-      const res = await this.fetchFn(new URL('/products?limit=0', this.options.baseUrl));
+      const res = await this.fetchFn(new URL('/products?limit=0', this.options.baseUrl), {
+        signal: AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+      });
       if (!res.ok) throw new Error(`DummyJSON responded ${res.status}`);
       const { products, skipped } = parseCatalogResponse(await res.json());
       if (skipped > 0) this.warn(`Skipped ${skipped} invalid catalog products`);

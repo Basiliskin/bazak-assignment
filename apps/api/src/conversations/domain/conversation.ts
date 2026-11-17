@@ -1,4 +1,4 @@
-import type { Conversation, ConversationSummary, Message } from '@app/contracts';
+import type { Conversation, Message } from '@app/contracts';
 
 export const TITLE_MAX = 40;
 const ELLIPSIS = '…';
@@ -26,9 +26,3 @@ export function appendMessage(conversation: Conversation, message: Message): Con
   if (conversation.messages.some((m) => m.id === message.id)) return conversation;
   return { ...conversation, messages: [...conversation.messages, message], updatedAt: message.createdAt };
 }
-
-export const toSummary = ({ id, title, updatedAt }: Conversation): ConversationSummary => ({
-  id,
-  title,
-  updatedAt,
-});

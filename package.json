@@ -14,7 +14,7 @@
     "build:contracts": "npm run build -w @app/contracts",
     "predev": "npm run build:contracts",
     "dev": "concurrently -k -n contracts,api,web -c gray,blue,magenta \"npm run dev -w @app/contracts\" \"npm run dev -w @app/api\" \"npm run dev -w @app/web\"",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "pretest": "npm run build:contracts",
     "test": "npm run test --workspaces --if-present",
     "eval": "npm run build:contracts && npm run eval -w @app/evals",

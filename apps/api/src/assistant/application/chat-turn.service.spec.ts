@@ -130,7 +130,7 @@ describe('ChatTurnService', () => {
       await service.run({ conversationId: CONV, message: { id: 'u1', text: 'show me cheaper ones' } }),
     );
     expect(requests[0]?.history.map((h) => h.role)).toEqual(['user', 'assistant', 'note', 'user']);
-    expect(requests[0]?.history[2]?.text).toContain('#1 iPhone 9 $499');
+    expect(requests[0]?.history[2]?.text).toContain('#1 "iPhone 9" $499');
     expect((await repo.get(CONV))?.title).toBe('a phone');
   });
 

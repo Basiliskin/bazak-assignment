@@ -1,6 +1,6 @@
 import type { Message } from '@app/contracts';
 import { useEffect, useRef, useState } from 'react';
-import { ApiError } from '../api/client';
+import { ApiError, isNotFound } from '../api/client';
 import { useConversation } from '../api/queries';
 import { AssistantAvatar, MessageBubble } from '../components/MessageBubble';
 import { ErrorBlock, TypingDots } from '../components/chat-parts';
@@ -28,7 +28,8 @@ export function ChatView({ conversationId, fresh, onNewChat }: Props) {
 
   if (conversation.isError) {
     const status = conversation.error instanceof ApiError ? conversation.error.status : 0;
-    if (status === 404 && fresh) return <ChatThread conversationId={conversationId} stored={NO_MESSAGES} />;
+    if (isNotFound(conversation.error) && fresh)
+      return <ChatThread conversationId={conversationId} stored={NO_MESSAGES} />;
     return (
       <Centered>
         <p className="text-base font-medium text-zinc-900">

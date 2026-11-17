@@ -87,3 +87,10 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - One run per case on a non-deterministic model — how much is a pass worth? → a smoke signal, not a statistic; repeats/LLM-judge are "with more time" (readme-notes)
 - How did you stop the follow-up case from passing vacuously? → first run passed R5 with 0 Products; case now asks "most expensive first" and also requires mens-watches cards (`evals/cases.ts`)
 - Why does the eval write only a marked section of `qa-report.md`? → D34; `replaceEvalSection` keeps what `/qa` writes around it
+
+## /qa
+- Product titles go into system-role history notes. Isn't that prompt injection? → D35; `compact-history.ts` JSON-quotes every interpolated string, plus a system-prompt rule; why the role stayed `system` is D25. Test in `compact-history.spec.ts`
+- What happens when DummyJSON hangs rather than refuses? → the fetch aborts after 5 s → CatalogUnavailable, the stale copy if one exists (`dummyjson.catalog.ts`); before /qa, one hung load stalled every turn
+- What do your tests *not* catch? → reply wording, whether the Assumption is sensible, visual layout, real-model variance (1 run per case), the widget (not built), DB file deleted while running (see `docs/qa-report.md`)
+- What happens with an invalid API key? → an SSE error part with Retry and the key masked in the log; but the message says "try again", which a retry can't fix (B2, deferred)
+- Why is AC5.3 (storage cleared) "manual"? → chats live on the server (ADR 0003), browser storage holds nothing; smoke-tested

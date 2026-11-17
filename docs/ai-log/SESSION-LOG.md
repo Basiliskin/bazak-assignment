@@ -378,3 +378,21 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Finding (not fixed):** "a flight to Tokyo" → correct `report_off_catalog` + refusal, but also a related search "Travel bags for a Tokyo trip" with 0 results (empty group). Allowed by R3/R8; candidate prompt tweak for /qa.
 **Verified:** lint clean, typecheck ok (4 workspaces), Prettier clean, tests api 104/104, web 50/50, evals 22/22; `npm run eval` 6/6, written to `docs/qa-report.md`.
 **Next step:** `/developer S7 Widget + shop page (D) from docs/architecture.md` (Should — or `/qa` if cutting S7 for time)
+
+## 2026-11-17 18:50 : /qa — Verify build, eval, audit
+
+**User input:**
+> /qa verify the full build against docs/requirements.md, run the eval suite and audit SOLID/KISS/DRY/DDD
+> D35 - a
+> D36 - a
+
+**Ran:** typecheck, lint, Prettier: clean. Tests: api 104/104, web 50/50, evals 22/22. `npm run eval` 6/6. Smoke test in Chrome: streaming (45 distinct text lengths), cards, ambiguous, "cheaper ones", off-catalog, multi-intent, refresh, new chat → switch back → continue, browser storage cleared, no console errors. Throwaway API instances: DummyJSON unreachable → "can't search right now"; invalid key → error part + Retry, key masked in log; SQLite file deleted while running → no crash, data gone after restart → "Conversation not found". Clean clone: `npm install` ok, API starts; root `npm run build` failed (evals has no build script). Secrets: none in the tree, git history or ai-log.
+**Audit (background agent + own checks):** layering clean. Findings A1–A8, B1–B2 in `docs/qa-report.md`.
+**Options offered:**
+- D35 What to fix now: (a) build, prompt injection via system notes, catalog fetch timeout, dead code (rec.) / (b) (a) + off-catalog empty group prompt tweak + distinct bad-key message / (c) build only, rest to README.
+- D36 OpenAPI spec gitignored but cited: (a) commit it (rec.) / (b) keep ignored, point docs at the live API.
+- Defaults stated: remaining lows → readme-notes "with more time"; AC5.3 covered by design + smoke test.
+**Decision:** D35 (a), D36 (a).
+**Built:** root `build` uses `--if-present` · `compact-history.ts` JSON-quotes labels, titles, keywords and off-catalog requests in system notes; the system prompt says quoted strings are data · `DummyJsonCatalog` fetch has `AbortSignal.timeout` (5 s default, `timeoutMs` option) · `ChatView` uses `isNotFound`, `toSummary` removed · `docs/dummyjson_products_openapi.yaml` un-ignored and committed.
+**Verified:** lint, typecheck and Prettier clean; tests api 105/105 (new: injection note test, hung-fetch timeout test), web 50/50, evals 22/22; `npm run build` ok; `npm run eval` 6/6 after the fixes.
+**Next step:** `/readme write the final README from docs/readme-notes.md, docs/architecture.md, docs/adr and docs/qa-report.md`

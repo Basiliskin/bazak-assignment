@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { message } from '../../../test/support/message.fixture.js';
-import { appendMessage, createConversation, deriveTitle, toSummary } from './conversation.js';
+import { appendMessage, createConversation, deriveTitle } from './conversation.js';
 
 describe('deriveTitle', () => {
   it('keeps short messages as they are (trimmed, single-spaced)', () => {
@@ -45,15 +45,5 @@ describe('appendMessage', () => {
   it('is idempotent for a Message id it already has (client retry)', () => {
     const once = appendMessage(conv, message({ id: 'm1' }));
     expect(appendMessage(once, message({ id: 'm1', text: 'changed' }))).toBe(once);
-  });
-});
-
-describe('toSummary', () => {
-  it('drops the messages', () => {
-    const conv = appendMessage(
-      createConversation('c1', 'hi', '2026-11-17T10:00:00.000Z'),
-      message({ id: 'm1' }),
-    );
-    expect(toSummary(conv)).toEqual({ id: 'c1', title: 'hi', updatedAt: conv.updatedAt });
   });
 });
