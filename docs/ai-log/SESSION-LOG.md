@@ -47,3 +47,36 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Artifacts:** `.claude/settings.json`, `.claude/hooks/{log-prompt,log-reply}.mjs`, `.claude/hooks/lib/ai-log.mjs`, `.claude/skills/{_shared/PROTOCOL.md,product,architect,developer,qa,readme,interview}`, `.gitignore`, `.env.example`, this log, `docs/interview-prep.md`.
 
 **Next step:** `/product turn docs/assignment.md into requirements, acceptance criteria and a ~3h scope cut`
+
+## 2026-11-17 13:45 : /product — query-behaviour rules (round 1)
+
+**User input:**
+> turn docs/assignment.md into requirements, acceptance criteria and a ~3h scope cut
+
+**Facts checked:** live DummyJSON has 194 products, 24 categories (incl. `vehicle`, `motorcycle`, `groceries`); `/products/search?q=cheap` → 0 results (vague words cannot be passed straight to search).
+
+**Options offered:**
+- D1 Ambiguous ("something cheap and cool"): (a) best-guess search + state assumption + one follow-up question (rec.) / (b) clarify first, no products / (c) guess silently.
+- D2 Off-catalog ("a flight to Tokyo"): (a) clear "not sold here" + related catalog suggestion (rec.) / (b) plain refusal / (c) search anyway.
+- D3 Multi-intent ("a phone under $500 and a lipstick"): (a) one labelled card group per intent (rec.) / (b) single merged list / (c) first intent only.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D1 (a) · D2 (a), plus the rule "never invent products — every shown product comes from a real catalog query" · D3 (a).
+**Artifacts:** none yet.
+
+## 2026-11-17 13:55 : /product — cards, titles, scope (round 2)
+
+**Options offered:**
+- D4 Cards: (a) required fields + rating + discount badge, ≤4 per group + "N more", click → details popup (rec.) / (b) required only, 6 cards, no click / (c) as (a) but click opens dummyjson.com.
+- D5 Conversation Title: (a) first message cut to ~40 chars (rec.) / (b) LLM-generated.
+- D6 MoSCoW: Must = core 7 capabilities + offline tests + ~6-case live eval; Should = popup, show more, follow-ups, error+retry; Could = delete, stop button; Won't = auth, cart, rename, AI titles, i18n, deploy.
+- Default: no accounts, single anonymous Shopper.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D4 (a) · D5 (a) · D6 as listed · default accepted.
+**Artifacts:** `GLOSSARY.md`, `docs/requirements.md`, `docs/interview-prep.md`, `docs/readme-notes.md`.
+**Next step:** `/architect choose the agent framework, retrieval strategy, streaming transport and persistence for docs/requirements.md and plan the slices`
