@@ -1,6 +1,6 @@
 import type { Conversation } from '@app/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { assistantMessage, phoneGroup, userMessage } from '../test/fixtures';
 import { ChatView } from './ChatView';
@@ -182,4 +182,83 @@ describe('ChatView', () => {
     expect(posts[1]).toEqual(posts[0]);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('opens the details popup from a card and closes it with Esc, focus back on the card (AC4.3)', async () => {
+    stubFetch({
+      [`GET /api/conversations/${CONV_ID}`]: json(storedWithPhones),
+      'GET /api/products/1': json({
+        ...phoneGroup.products[0],
+        brand: 'Apple',
+        stock: 3,
+        images: ['https://cdn.example/1a.png', 'https://cdn.example/1b.png'],
+        tags: ['smartphones', 'apple'],
+      }),
+    });
+    renderChat();
+
+    const card = await screen.findByRole('button', { name: /iPhone 9/ });
+    await userEvent.click(card);
+    const dialog = await screen.findByRole('dialog', { name: 'iPhone 9' });
+    expect(dialog).toHaveTextContent('Apple');
+    expect(dialog).toHaveTextContent('Only 3 left');
+    expect(dialog).toHaveTextContent('$554.44'); // original price before 10% off
+    expect(within(dialog).getByRole('img', { name: 'iPhone 9' })).toHaveAttribute(
+      'src',
+      'https://cdn.example/1a.png',
+    );
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Image 2' }));
+    expect(within(dialog).getByRole('img', { name: 'iPhone 9' })).toHaveAttribute(
+      'src',
+      'https://cdn.example/1b.png',
+    );
+
+    fireEvent(dialog, new Event('cancel', { cancelable: true })); // what the browser fires on Esc
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(card).toHaveFocus();
+  });
+
+  it('closes the popup with ✕ and on a backdrop click', async () => {
+    stubFetch({
+      [`GET /api/conversations/${CONV_ID}`]: json(storedWithPhones),
+      'GET /api/products/1': json({ ...phoneGroup.products[0], stock: 50, images: [], tags: [] }),
+    });
+    renderChat();
+
+    await userEvent.click(await screen.findByRole('button', { name: /iPhone 9/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /iPhone 9/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'iPhone 9' });
+    expect(dialog).toHaveTextContent('In stock');
+    await userEvent.click(dialog); // the <dialog> element itself = its backdrop
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('"Show more" asks the Assistant for the next page of that group (AC4.4)', async () => {
+    const stream = controllableStream();
+    const calls = stubFetch({
+      [`GET /api/conversations/${CONV_ID}`]: json(storedWithPhones),
+      'POST /api/chat': () => stream.response,
+    });
+    renderChat();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show more' }));
+    const post = calls.find((c) => c.url === '/api/chat')!;
+    expect(JSON.parse(String(post.init?.body))).toMatchObject({
+      message: { text: 'Show more: Phones under $500' },
+    });
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeDisabled();
+  });
 });
+
+const storedWithPhones: Conversation = {
+  id: CONV_ID,
+  title: 'a phone under $500',
+  updatedAt: '2026-11-17T10:00:05.000Z',
+  messages: [
+    userMessage('u1', 'a phone under $500'),
+    assistantMessage('a1', 'Here is one.', { productGroups: [phoneGroup] }),
+  ],
+};

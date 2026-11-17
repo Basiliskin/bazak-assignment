@@ -325,3 +325,23 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Issues hit:** lint `react-hooks/set-state-in-effect` on closing the drawer → drawer state stores the Conversation id it was opened for; the client stops reading after an `error` part (test adjusted).
 **Verified:** lint clean, typecheck ok, tests api 97/97, web 26/26 (incl. streaming `ChatView` test with a hand-driven SSE body: bubble at once, input disabled, search status, group, text in steps, error + Retry resends same id). `vite build` ok (bundle > 500 kB warning). Live in Chrome (gpt-6-luna): `/chat` → uuid URL; multi-intent → 2 groups + text, sidebar + header title updated; "show me cheaper phones" → "no matches" + broader suggestion; reload → both turns with groups; unknown id → "Conversation not found"; no console errors.
 **Next step:** `/developer S5 Product cards from docs/architecture.md`
+
+## 2026-11-17 17:35 : /developer S5 — Product cards
+
+**User input:**
+> /developer S5 Product cards from docs/architecture.md
+> D29 - i think components should be "light" and "dumb" as possible
+>  - rest agree to recomendations
+
+**Found before proposing:** S4's `toChatItems` already maps `search_products` outputs → `ProductGroup[]` (the planned `toProductGroups`), and `OffCatalogNotice` exists; jsdom 31 has `<dialog>` but no `showModal`.
+
+**Options offered:**
+- D28 Details dialog: (a) native `<dialog>` + `showModal()` (rec.) / (b) hand-written overlay div / (c) Radix / Headless UI.
+- D29 Card click + Show more wiring: (a) callbacks as props, `ChatView` owns the open id, `ProductDetailsContainer` fetches (rec.) / (b) React context / (c) URL param `?product=`.
+- D30 Details response: (a) `ProductDetailsSchema` in contracts, client parses (rec.) / (b) keep interface, cast.
+- Defaults stated: Show more sends `Show more: <label>` (disabled while streaming); pure `groupRange`; badge ≥5%; 📦 fallback; grid now, carousel built for S7; dialog content per design.md; helper unit tests + component tests.
+
+**Decision:** D28 (a), D29 (a), made stricter: product components get only props and callbacks; every display rule (range, "N more", badge, original price, stock label) is in pure `lib/product-view.ts`; local state only for "image failed" (`ProductImage`) and the gallery index lives in the container. D30 (a).
+**Built:** contracts `ProductDetailsSchema` (API `parse-catalog.ts` reuses it) · web `lib/product-view.ts` · `components/` `ProductImage`, `ProductCard` (+`Rating`), `ProductGroup` (grid | carousel, `AssumptionChip`, empty group, Show more), `Modal`, `ProductDetailsDialog` (loading / error + Try again / ready) · `products/ProductDetailsContainer.tsx` · `api.getProduct` + `useProduct` · `ChatView`/`MessageBubble` wired; S4 `ProductGroupPreview` removed · `.no-scrollbar` CSS · `showModal` stub in `test-setup.ts`.
+**Verified:** lint clean, typecheck ok, Prettier clean, tests api 97/97, web 50/50 (16 helper tests; `MessageBubble.spec.tsx` with 2 groups: labels, ranges, images, prices, rating, badge, Assumption chip, image fallback, callbacks, Show more disabled while busy; `ChatView.spec.tsx`: card → details (brand, "Only 3 left", original price, gallery switch) → Esc closes + focus back on card; ✕ and backdrop close; Show more POSTs `Show more: Phones under $500`). Live in Chrome: grid with badges, dialog opens / Esc closes / focus returns, no console errors.
+**Live finding (not fixed in S5):** Show more returned "5–8 of 12" but repeated Oppo A57: page 1 ran with `sortBy: price-asc`, the model re-ran page 2 with `sortBy: relevance` — the history note (D25) carries label/count/Products but not the query, so the model can't copy the sort. Offered as a follow-up decision.

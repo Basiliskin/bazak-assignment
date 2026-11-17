@@ -49,13 +49,14 @@ export const ProductCardSchema = z.object({
 });
 export type ProductCard = z.infer<typeof ProductCardSchema>;
 
-/** Full Product for the details popup (GET /api/products/:id). */
-export interface ProductDetails extends ProductCard {
-  brand?: string;
-  stock: number;
-  images: string[];
-  tags: string[];
-}
+/** Full Product for the details popup (GET /api/products/:id); also the Catalog's Product shape. */
+export const ProductDetailsSchema = ProductCardSchema.extend({
+  brand: z.string().optional(), // 92 of 194 Products have none
+  stock: z.number().int(),
+  images: z.array(z.string()),
+  tags: z.array(z.string()),
+});
+export type ProductDetails = z.infer<typeof ProductDetailsSchema>;
 
 // ── Assistant tools (the LLM's structured query) ───────────────────────────────
 

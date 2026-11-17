@@ -1,14 +1,20 @@
+import type { ProductGroup as ProductGroupData } from '@app/contracts';
 import type { ChatItem } from '../chat/chat-types';
-import { OffCatalogNotice, ProductGroupPreview, RichText, ToolStatus, TypingDots } from './chat-parts';
+import { OffCatalogNotice, RichText, ToolStatus, TypingDots } from './chat-parts';
+import { ProductGroup } from './ProductGroup';
 
 interface Props {
   item: ChatItem;
   /** This is the reply being streamed right now. */
   live?: boolean;
+  onOpenProduct: (id: number) => void;
+  onShowMore: (group: ProductGroupData) => void;
+  /** A reply is streaming: "Show more" waits. */
+  busy?: boolean;
 }
 
 /** One Message. User: right-aligned indigo bubble. Assistant: ✦ avatar, tool status, notices, groups, text. */
-export function MessageBubble({ item, live = false }: Props) {
+export function MessageBubble({ item, live = false, onOpenProduct, onShowMore, busy = false }: Props) {
   if (item.role === 'user') {
     return (
       <div className="animate-rise flex justify-end">
@@ -32,7 +38,13 @@ export function MessageBubble({ item, live = false }: Props) {
           <OffCatalogNotice key={i} request={o.request} />
         ))}
         {item.productGroups.map((g, i) => (
-          <ProductGroupPreview key={i} group={g} />
+          <ProductGroup
+            key={i}
+            group={g}
+            onOpenProduct={onOpenProduct}
+            onShowMore={() => onShowMore(g)}
+            showMoreDisabled={busy}
+          />
         ))}
         {item.text && <RichText text={item.text} streaming={live} />}
       </div>

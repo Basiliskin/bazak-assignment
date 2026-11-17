@@ -71,3 +71,9 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How does "New chat" get its id, and what does refreshing an unsent chat show? → D27; `NewChatRedirect` in `shells/PageShell.tsx`; 404 + `fresh` state = empty chat, 404 otherwise = "not found"
 - Why does `ChatView` wait for `isFetchedAfterMount` instead of using the cached history? → `useChat` reads initial messages once; a stale cache would hide the last turn after switching back
 - What does Retry send, and why can't it duplicate a Message? → `regenerate()` → `toChatRequest` resends the same user Message id; server `appendMessage` ignores known ids
+
+## /developer S5
+- Why the native `<dialog>` and not a hand-made overlay or Radix? → D28; `apps/web/src/components/Modal.tsx` (Esc/focus trap/top layer from the browser; jsdom stub in `test-setup.ts`)
+- How "dumb" are the product components, and where does the logic live? → D29; pure `lib/product-view.ts` (range, "N more", discount, stock) + containers `ChatView` / `ProductDetailsContainer`; components take props and call callbacks
+- Why parse the details response with zod when the API is ours? → D30; `ProductDetailsSchema` in contracts, the one schema also parses DummyJSON in `parse-catalog.ts`
+- How does "Show more" work, and what can go wrong? → it sends `Show more: <label>` to the Assistant; found live: the model changed `sortBy` on page 2 → a repeated Product (see SESSION-LOG S5)

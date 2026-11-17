@@ -4,6 +4,7 @@ import { api, ApiError } from './client';
 export const queryKeys = {
   conversationList: ['conversations', 'list'] as const,
   conversation: (id: string) => ['conversation', id] as const,
+  product: (id: number) => ['product', id] as const,
 };
 
 const retryUnlessClientError = (failures: number, error: unknown) =>
@@ -31,3 +32,12 @@ export const useDeleteConversation = () => {
     },
   });
 };
+
+/** Details popup (AC4.3). Catalog data changes rarely — cached for the session. */
+export const useProduct = (id: number) =>
+  useQuery({
+    queryKey: queryKeys.product(id),
+    queryFn: () => api.getProduct(id),
+    retry: retryUnlessClientError,
+    staleTime: Infinity,
+  });

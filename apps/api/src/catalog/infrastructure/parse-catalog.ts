@@ -1,22 +1,9 @@
-import { CategorySlugSchema } from '@app/contracts';
+import { ProductDetailsSchema } from '@app/contracts';
 import { z } from 'zod';
 import type { Product } from '../domain/product.js';
 
-/** DummyJSON's product shape — only the fields we use (extra fields are stripped). */
-const DummyJsonProductSchema = z.object({
-  id: z.number().int(),
-  title: z.string(),
-  description: z.string(),
-  category: CategorySlugSchema,
-  price: z.number().nonnegative(),
-  discountPercentage: z.number(),
-  rating: z.number(),
-  stock: z.number().int(),
-  tags: z.array(z.string()),
-  brand: z.string().optional(),
-  images: z.array(z.string()),
-  thumbnail: z.string(),
-});
+/** DummyJSON's product shape = our ProductDetails (extra fields are stripped); prices can't be negative. */
+const DummyJsonProductSchema = ProductDetailsSchema.extend({ price: z.number().nonnegative() });
 
 const DummyJsonListSchema = z.object({ products: z.array(z.unknown()) });
 

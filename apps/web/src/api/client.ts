@@ -1,8 +1,10 @@
 import {
   ConversationSchema,
   ConversationSummarySchema,
+  ProductDetailsSchema,
   type Conversation,
   type ConversationSummary,
+  type ProductDetails,
 } from '@app/contracts';
 
 /** HTTP error with the API's `{ error: { code, message } }` body (DomainExceptionFilter). */
@@ -37,6 +39,10 @@ export const api = {
   },
   async deleteConversation(id: string): Promise<void> {
     await request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+  async getProduct(id: number): Promise<ProductDetails> {
+    const res = await request(`/products/${id}`);
+    return ProductDetailsSchema.parse(await res.json());
   },
   chatUrl: '/api/chat',
 };

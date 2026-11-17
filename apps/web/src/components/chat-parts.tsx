@@ -1,4 +1,3 @@
-import type { ProductGroup } from '@app/contracts';
 import { toInlineSegments } from '../lib/format';
 
 /** Small presentational pieces of an Assistant Message (docs/design.md → Components). */
@@ -71,29 +70,5 @@ export function RichText({ text, streaming }: { text: string; streaming: boolean
       )}
       {streaming && <span className="caret" aria-hidden="true" />}
     </p>
-  );
-}
-
-/** Placeholder until S5 (cards, grid/carousel, Assumption chip, Show more). */
-export function ProductGroupPreview({ group }: { group: ProductGroup }) {
-  const from = group.query.offset + 1;
-  const to = group.query.offset + group.products.length;
-  return (
-    <section aria-label={group.label} className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-      <div className="mb-2 flex flex-wrap items-center gap-x-2">
-        <h3 className="text-sm font-semibold text-zinc-900">{group.label}</h3>
-        <span className="text-xs text-zinc-500">
-          {group.total === 0 ? 'no matches' : `${from}–${to} of ${group.total}`}
-        </span>
-      </div>
-      <ul className="space-y-1 text-sm text-zinc-700">
-        {group.products.map((p) => (
-          <li key={p.id} className="flex justify-between gap-3">
-            <span className="truncate">{p.title}</span>
-            <span className="shrink-0 font-medium">${p.price.toFixed(2)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

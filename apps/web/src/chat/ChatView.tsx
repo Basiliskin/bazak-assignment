@@ -1,11 +1,12 @@
 import type { Message } from '@app/contracts';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
 import { useConversation } from '../api/queries';
 import { AssistantAvatar, MessageBubble } from '../components/MessageBubble';
 import { ErrorBlock, TypingDots } from '../components/chat-parts';
 import { Composer } from '../components/Composer';
 import { EmptyState } from '../components/EmptyState';
+import { ProductDetailsContainer } from '../products/ProductDetailsContainer';
 import { describeChatError } from './describe-chat-error';
 import { useShoppingChat } from './useShoppingChat';
 
@@ -66,6 +67,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 /** Messages + composer for one Conversation, live via `useShoppingChat`. */
 function ChatThread({ conversationId, stored }: { conversationId: string; stored: readonly Message[] }) {
   const chat = useShoppingChat(conversationId, stored);
+  const [openProductId, setOpenProductId] = useState<number | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const last = chat.items.at(-1);
   const waitingForFirstPart = chat.status === 'submitted' && last?.role === 'user';
@@ -90,6 +92,10 @@ function ChatThread({ conversationId, stored }: { conversationId: string; stored
                 key={item.id}
                 item={item}
                 live={chat.busy && item === last && item.role === 'assistant'}
+                busy={chat.busy}
+                onOpenProduct={setOpenProductId}
+                // The Assistant repeats that group's search with the next offset (system prompt).
+                onShowMore={(group) => void chat.send(`Show more: ${group.label}`)}
               />
             ))
           )}
@@ -108,6 +114,13 @@ function ChatThread({ conversationId, stored }: { conversationId: string; stored
       <div className="shrink-0 bg-gradient-to-t from-zinc-50 via-zinc-50 to-transparent px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
         <Composer busy={chat.busy} onSend={(text) => void chat.send(text)} />
       </div>
+      {openProductId !== null && (
+        <ProductDetailsContainer
+          key={openProductId}
+          productId={openProductId}
+          onClose={() => setOpenProductId(null)}
+        />
+      )}
     </>
   );
 }

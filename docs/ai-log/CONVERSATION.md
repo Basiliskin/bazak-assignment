@@ -1044,3 +1044,85 @@
 > <status>failed</status>
 > <summary>Background command "Start dev servers in background" failed with exit code 1</summary>
 > </task-notification>
+
+### 2026-11-17T13:18:14.030Z : /developer — assistant
+
+> S4 is done and committed as `3375ef7`. The full-page chat streams real replies, shows the Conversation list and survives a reload.
+> 
+> **Checks:** lint and typecheck are clean. Tests pass: api 97/97, web 26/26. The web build works but warns that the bundle is over 500 kB, which is noted under "with more time".
+> 
+> **What the tests cover:**
+> - **Unit tests** for the pure functions: the two message mappers (round-trip), building the request body, turning errors into readable text, relative times and bold text.
+> - **One `ChatView` test** that feeds a fake stream chunk by chunk. It checks that your message shows at once, the input is cleared and disabled, the "Searching: …" status appears, then the group, then the text in several steps. It also checks that the error block shows with the partial text kept, and that Retry resends the same Message id.
+> - **Router tests**: `/chat` gets a new id in the URL, and the sidebar marks the active Conversation.
+> 
+> **What I checked in Chrome with ***REDACTED***:**
+> - `/chat` moved to a new id in the URL and showed the empty state.
+> - "a phone under $500 and a lipstick" gave two groups and one reply. The sidebar entry and header title updated as soon as the reply finished.
+> - "show me cheaper phones" used the history and replied "no matches" with a suggestion to widen the search.
+> - After a reload, both turns and their groups were still there.
+> - An unknown id showed "Conversation not found" with a New chat button. The console had no errors.
+> 
+> **Decisions:**
+> - **D26 (a):** stored Messages are converted into `useChat`'s format so live and stored replies render through one path. Every product result from the stream is checked against the shared schemas before it can appear (R1).
+> - **D27 (a):** `/chat` immediately redirects to `/chat/<uuid>`. I changed one thing from what I proposed: the router's "fresh" flag survives a refresh, so skipping the fetch could have shown an empty chat after a refresh. `ChatView` therefore always fetches; a 404 means a new empty chat if the chat was just created, and "not found" otherwise.
+> - `ChatView` waits for a fresh fetch each time a Conversation opens, because `useChat` reads its starting messages only once. The cost is a short "Loading conversation…" when switching chats.
+> 
+> **Not done yet (S5):** product groups are a placeholder showing the label, "1–4 of N" and titles with prices. The cards, carousel, Assumption chip, Show more and the details popup come next.
+> 
+> The new decisions (D26, D27) are now in `docs/architecture.md`, and I added notes to SESSION-LOG, `docs/interview-prep.md` and `docs/readme-notes.md`.
+> 
+> **Changed files:**
+> - **New in `apps/web/src`:**
+>   - `api/client.ts` and `api/queries.ts`
+>   - `chat/`: `chat-types.ts`, `to-ui-messages.ts`, `to-chat-items.ts`, `to-chat-request.ts`, `describe-chat-error.ts`, `useShoppingChat.ts`, `ChatView.tsx`, plus two spec files
+>   - `components/`: `MessageBubble.tsx`, `Composer.tsx`, `EmptyState.tsx`, `chat-parts.tsx`
+>   - `conversations/`: `ConversationSidebar.tsx`, `ConversationList.tsx`
+>   - `lib/format.ts` with its spec, and `test/fixtures.ts`
+> - **Modified:**
+>   - `apps/web`: `shells/PageShell.tsx`, `app/router.tsx` with its spec, `index.css`, `package.json`, root `package-lock.json`
+>   - docs: `docs/architecture.md`, `docs/ai-log/SESSION-LOG.md`, `docs/interview-prep.md`, `docs/readme-notes.md`
+> 
+> ➡️ Next step: `/developer`
+> Suggested prompt: `/developer S5 Product cards from docs/architecture.md`
+
+### 2026-11-17T13:18:28.874Z : /developer — user
+
+> /developer S5 Product cards from docs/architecture.md
+
+### 2026-11-17T13:19:20.071Z : /developer — assistant
+
+> S5 involves three real decisions. Everything else follows `docs/design.md` and the prototype.
+> 
+> ❓ **D28 — Details dialog (AC4.3)**
+> (a) **Native `<dialog>` + `showModal()`** (Recommended). The browser handles Esc, the focus trap and the top layer for free. A backdrop click is one `onClick` check, and we return focus to the card ourselves. Downside: jsdom 31 has no `showModal`, so `test-setup.ts` needs a 3-line stub.
+> (b) **A hand-written overlay `div` with `role="dialog"`**. Works in jsdom as is, but we'd write the Esc handler, focus move/return and scroll lock ourselves (~30 lines), and the focus trap would be weaker.
+> (c) **Radix / Headless UI Dialog**. Most complete accessibility, but it's a new dependency for one dialog in a 3-hour build.
+> ➡️ (a) gets the accessibility from the platform at no cost. The test stub is the only cost.
+> 
+> ❓ **D29 — How a card click and "Show more" reach the container**
+> (a) **Pass callbacks as props**: `ChatView` → `MessageBubble` → `ProductGroup` → `ProductCard` get `onOpenProduct(id)` / `onShowMore(group)`. `ChatView` owns the open id and renders `ProductDetailsContainer`, which fetches `GET /api/products/:id` with TanStack Query (Recommended).
+> (b) **React context** (`ProductActionsProvider`) at shell level. No prop passing, but the data flow is hidden and it's a second way to wire things.
+> (c) **URL param `?product=<id>`**. You can link to it and Back closes it on phones, but it fights the widget on `/` (S7) and the router state of `/chat/:id` (D27).
+> ➡️ (a): it's three levels deep and explicit, components stay presentational, and S7's `ShopPage` reuses the same container.
+> 
+> ❓ **D30 — Validating the details response**
+> (a) **Turn `ProductDetails` into `ProductDetailsSchema = ProductCardSchema.extend({…})`** in contracts. The client parses the response the same way it parses Conversations (D23) (Recommended).
+> (b) Keep the interface and cast the JSON. Less code, but it's the only unvalidated response in the client.
+> ➡️ (a) keeps every response going through the contracts. The API type is derived the same way.
+> 
+> **Defaults I'll use unless you object:**
+> - **Show more:** sends the chat message `Show more: <label>` through the LLM, as already decided in the architecture. The button is shown when there are more matches (`remaining > 0`) and is disabled while a reply is streaming.
+> - **"N more match":** `remaining = total − offset − shown`, from a pure `groupRange(group)` helper with a unit test.
+> - **Cards:** discount badge when the discount is ≥5%. A broken image (`onError`) shows the 📦 "No image" placeholder. Description cut to 2 lines (`line-clamp-2`).
+> - **Group:** amber `💡 Assumed: …` chip when `confidence === 'guessed'`. A group with 0 results shows "Nothing matched — try a broader search."
+> - **Layout:** `grid` is wired for now. `carousel` is implemented but first used in S7.
+> - **Dialog:** image gallery with thumbnails, brand, price with the original crossed out plus the discount %, rating, stock label (In stock / Only N left / Out of stock), description, tags. On phones it becomes a bottom sheet. It shows loading and error states.
+> - **Tests:** unit tests for the pure helpers (`groupRange`, `originalPrice`, `stockLabel`), plus one component test. The component test renders a stored message with 2 groups and checks labels, prices, images, "N more", the Assumption chip, the image fallback, that Show more sends the message, and that the dialog opens and closes with Esc.
+> 
+> Pick letters (e.g. "a a a") or adjust.
+
+### 2026-11-17T13:25:11.632Z : /developer — user
+
+> D29 - i think components should be "light" and "dumb" as possible
+>  - rest agree to recomendations

@@ -24,6 +24,9 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D25 | History to LLM | Last 20 Messages as text; Products each reply showed go as a following **system note** (`allowSystemInMessages`), never inside assistant text |
 | D26 | UI message shape | Stored `Message` → `UIMessage` (`toUIMessages`) seeds `useChat`; all rendering via pure `toChatItems` view model — SDK types stay in `chat/` |
 | D27 | New chat URL | `/chat` replace-redirects to `/chat/<uuid>` with state `{fresh}`; 404 + fresh = empty chat, 404 otherwise = not found |
+| D28 | Details popup | Native `<dialog>` + `showModal()` in a small `Modal`; Esc via `cancel`, backdrop = click on the dialog element; focus returns to the card |
+| D29 | Product component wiring | Presentational components get props + callbacks only (`onOpenProduct`, `onShowMore`); display rules in pure `lib/product-view.ts`; `ChatView` owns the open id, `ProductDetailsContainer` fetches |
+| D30 | Details contract | `ProductDetailsSchema` (zod) in contracts; web parses `GET /api/products/:id`; API parses DummyJSON with the same schema |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -192,6 +195,6 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. ✅ done | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModelV4`. ✅ done | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
 | **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. ✅ done (D26 stored→UI messages→`toChatItems` view model; D27 `/chat` → `/chat/<uuid>`) | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
-| **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. | AC4.x, R2–R4 display |
+| **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. ✅ done (`toChatItems` from S4 already maps tool outputs → groups; D28–D30) | AC4.x, R2–R4 display |
 | **S6** Eval suite | `evals/cases.ts` (6 cases + out-of-stock), `run-evals.ts` with coded rule checks, writes table to `docs/qa-report.md`. | AC7.2–7.3 |
 | **S7** Widget + shop page (D) | `GET /api/products?limit=10`, `ShopPage`, `WidgetShell` (FAB, window, in-window list, ⤢, localStorage pointer), carousel layout, full screen on phones. Cut first if time is short. | US6b |

@@ -56,3 +56,9 @@
 - The browser holds no history of its own: `useChat` is seeded from `GET /api/conversations/:id`, and each request sends only the new Message.
 - Trade-off: switching Conversations shows a short "Loading conversation…" because history is always fetched fresh rather than served from cache.
 - With more time: code-split the web bundle (>500 kB with zod + AI SDK), confirm before delete with undo, stop-generation button.
+
+## /developer S5
+- Product Cards: image (📦 placeholder if it fails), discount badge from 5%, 1-line title, 2-line description, price, ★ rating; groups show "1–4 of N", the 💡 Assumption chip on guessed searches, "N more match · Show more".
+- Details popup: native `<dialog>` (Esc, focus trap, backdrop click), bottom sheet on phones; fetched from `GET /api/products/:id` and validated with the shared `ProductDetailsSchema`.
+- Presentational components hold no logic: display rules are pure functions in `lib/product-view.ts`; containers own state and fetching.
+- Trade-off: "Show more" goes through the LLM (one model call, ~5 s, persisted like any turn) instead of a direct paging endpoint.
