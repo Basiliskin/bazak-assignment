@@ -14,6 +14,8 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D7 | Frontend | Vite + React + React Router + `useChat` + TanStack Query + Tailwind |
 | D14 | UI shells | **Widget on a shop page (primary) + full page (⤢)**, same components — `docs/design.md` |
 | D8 | Tests | Unit (pure functions) · API e2e with `MockLanguageModel` · one component test · live eval script with coded rule checks |
+| D17 | Module system & test runner | **ESM everywhere; Vitest for api and web** (`unplugin-swc` for Nest decorator metadata) — `ai@7` and Nest 12 ship ESM only, Jest needs an experimental flag |
+| D18 | Contracts packaging | `packages/contracts` compiled by `tsc` to `dist/` (watched in dev; `predev`/`pretest` build it) |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
 ## Facts this design rests on (verified 2026-11-17)
@@ -44,7 +46,8 @@ flowchart LR
 apps/
   api/src/
     main.ts, app.module.ts
-    shared/            config (zod-validated env), ZodValidationPipe, DomainExceptionFilter
+    shared/            config/ (parseConfig pure + ConfigModule), configure-app.ts, health.controller.ts,
+                       ZodValidationPipe, DomainExceptionFilter
     catalog/
       domain/          product.ts (types), filter-products.ts, to-product-card.ts      ← pure
       application/     catalog.service.ts (search, getById; uses CatalogPort)
@@ -165,8 +168,8 @@ SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id,
 ## Testing & evaluation
 | Layer | Tool | Covers |
 |---|---|---|
-| Unit (pure) | Jest (api), Vitest (web) | `filterProducts`, `toProductCard`, schema refine (guessed ⇒ assumption), `compactHistory`, `deriveTitle`, `appendMessage`, `toAssistantMessage`, `toProductGroups`, `format` |
-| API e2e | Jest + supertest + `MockLanguageModel` (`ai/test`) + fake `CatalogPort` + in-memory SQLite | POST /api/chat → stream contains text deltas + tool output → GET conversation shows both messages persisted |
+| Unit (pure) | Vitest (api + web) | `filterProducts`, `toProductCard`, schema refine (guessed ⇒ assumption), `compactHistory`, `deriveTitle`, `appendMessage`, `toAssistantMessage`, `toProductGroups`, `format` |
+| API e2e | Vitest + supertest + `MockLanguageModel` (`ai/test`) + fake `CatalogPort` + in-memory SQLite | POST /api/chat → stream contains text deltas + tool output → GET conversation shows both messages persisted |
 | Component | Vitest + Testing Library | stored message with 2 Product Groups renders labels, prices, images, "N more" |
 | Live eval | `npm run eval` (real model + real catalog) | 6 cases; rules checked in code: R1 ids exist, R6 prices, R4 group count, R3 tool called, R2 assumption present. Writes a table to `docs/qa-report.md` |
 
@@ -175,7 +178,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 ## Slices (ordered, for /developer)
 | Slice | Goal | AC |
 |---|---|---|
-| **S0** Scaffold + tooling | npm workspaces; `packages/contracts` (package.json, tsconfig, zod); Nest app with config (zod env), `GET /api/health`; Vite React app with Tailwind + Router; ESLint + Prettier; Jest (api), Vitest (web); `npm run dev` runs both (Vite proxy `/api`). | — |
+| **S0** Scaffold + tooling | npm workspaces; `packages/contracts` (package.json, tsconfig, zod); Nest app with config (zod env), `GET /api/health`; Vite React app with Tailwind + Router; ESLint + Prettier; Vitest (api + web); `npm run dev` runs contracts watch + api (:3001) + web (:5173, proxy `/api`). ✅ done | — |
 | **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`. | AC3.2 (filter), AC3.7, AC3.8 |
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModel`. | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |

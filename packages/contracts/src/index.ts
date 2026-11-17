@@ -6,10 +6,30 @@ import { z } from 'zod';
 
 /** The 24 DummyJSON category slugs (verified live 2026-11-17 via /products/category-list). */
 export const CATEGORY_SLUGS = [
-  'beauty', 'fragrances', 'furniture', 'groceries', 'home-decoration', 'kitchen-accessories',
-  'laptops', 'mens-shirts', 'mens-shoes', 'mens-watches', 'mobile-accessories', 'motorcycle',
-  'skin-care', 'smartphones', 'sports-accessories', 'sunglasses', 'tablets', 'tops', 'vehicle',
-  'womens-bags', 'womens-dresses', 'womens-jewellery', 'womens-shoes', 'womens-watches',
+  'beauty',
+  'fragrances',
+  'furniture',
+  'groceries',
+  'home-decoration',
+  'kitchen-accessories',
+  'laptops',
+  'mens-shirts',
+  'mens-shoes',
+  'mens-watches',
+  'mobile-accessories',
+  'motorcycle',
+  'skin-care',
+  'smartphones',
+  'sports-accessories',
+  'sunglasses',
+  'tablets',
+  'tops',
+  'vehicle',
+  'womens-bags',
+  'womens-dresses',
+  'womens-jewellery',
+  'womens-shoes',
+  'womens-watches',
 ] as const;
 export const CategorySlugSchema = z.enum(CATEGORY_SLUGS);
 export type CategorySlug = z.infer<typeof CategorySlugSchema>;
@@ -42,13 +62,19 @@ export const SearchProductsInputSchema = z
   .object({
     label: z.string().min(1).describe('Short heading for this Product Group, e.g. "Phones under $500"'),
     category: CategorySlugSchema.nullable().describe('Exact category slug, or null to search all'),
-    keywords: z.array(z.string().min(1)).max(5).describe('Single words matched against title, description, brand, tags'),
+    keywords: z
+      .array(z.string().min(1))
+      .max(5)
+      .describe('Single words matched against title, description, brand, tags'),
     minPrice: z.number().nonnegative().nullable(),
     maxPrice: z.number().positive().nullable(),
     sortBy: z.enum(SORT_OPTIONS),
     offset: z.number().int().nonnegative().describe('For "show more": number of Products already shown'),
     confidence: z.enum(['clear', 'guessed']),
-    assumption: z.string().nullable().describe('Required when confidence is "guessed": what the vague request was taken to mean'),
+    assumption: z
+      .string()
+      .nullable()
+      .describe('Required when confidence is "guessed": what the vague request was taken to mean'),
   })
   .refine((q) => q.confidence === 'clear' || !!q.assumption, {
     message: 'assumption is required when confidence is "guessed"',
@@ -69,7 +95,10 @@ export const ReportOffCatalogInputSchema = z.object({
 });
 export type ReportOffCatalogInput = z.infer<typeof ReportOffCatalogInputSchema>;
 
-export const TOOL_NAMES = { searchProducts: 'search_products', reportOffCatalog: 'report_off_catalog' } as const;
+export const TOOL_NAMES = {
+  searchProducts: 'search_products',
+  reportOffCatalog: 'report_off_catalog',
+} as const;
 
 // ── Conversations ─────────────────────────────────────────────────────────────
 

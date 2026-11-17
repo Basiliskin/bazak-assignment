@@ -36,3 +36,9 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - Why hide out-of-stock products instead of labelling them? → requirements R9
 - How did you make the prototypes modular, and how does that carry into React? → `prototypes/shared/` (pure model + pure render functions + one runtime) ↔ presentational components + containers
 - Accessibility: what happens to keyboard focus when the dialog opens/closes? → design.md "Accessibility"
+
+## /developer S0
+- Why Vitest for a NestJS API instead of Jest? → architecture D17 (ESM-only `ai@7` + Nest 12; SWC for decorator metadata)
+- How do the apps share types without copying them? → D18, `packages/contracts` built to `dist/`
+- How do you make sure the API key can't leak and only `gpt-6-luna` is used? → `apps/api/src/shared/config/app-config.ts` (`z.literal`, errors never echo values) + spec
+- Why is config parsing a pure function separate from the Nest module? → functional core: `parseConfig` unit-tested without Nest; `loadConfigOrExit` is the shell

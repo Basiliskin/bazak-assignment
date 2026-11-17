@@ -602,3 +602,78 @@
 ### 2026-11-17T12:30:14.960Z : /designer — user
 
 > agree
+
+### 2026-11-17T12:31:38.228Z : /designer — assistant
+
+> Design is done and committed (`c0e2e7a`).
+> 
+> **What you picked:**
+> - **D on top of A.** The main experience is the floating ✦ button on a shop page, which opens a chat window with cards in a swipe row. ⤢ opens the same chat as a full page (A: sidebar plus card grid).
+> - Both share the same components and differ only in their outer shell.
+> - If time runs short, A alone is the fallback.
+> - **Out-of-stock products are hidden** from searches. This is new rule R9 with its own acceptance test, AC3.9, and the live eval will check it.
+> 
+> **Docs:**
+> - **`docs/design.md`** has the chosen direction and rejected options, a component table, how each scenario looks, colours and spacing, the rules per screen width, keyboard and screen-reader basics, and what the page remembers.
+> - **`docs/requirements.md`** got R9, AC3.9, and **US6b** (the widget, a Should). Full page A stays a Must.
+> - **`docs/architecture.md`** got:
+>   - Routes: `/` is the shop plus widget, and `/chat/:id` is the full page.
+>   - The two outer shells, `WidgetShell` and `PageShell`.
+>   - A `GET /api/products?limit=10` endpoint for the shop's product grid.
+>   - The out-of-stock filter.
+> - The **slices** were reordered so the Must items come first:
+>   - S4: full-page chat
+>   - S5: product cards
+>   - S6: evals
+>   - S7: widget and shop page (first to cut)
+> - **Decision record 0003 amended.** The widget keeps only the *id* of the open chat in browser `localStorage`, so clearing it loses nothing.
+> - **`prototypes/`** (19 files) is committed, along with new interview-prep questions and README notes.
+> 
+> ➡️ Next step:
+> ```
+> /developer S0 scaffold + tooling from docs/architecture.md
+> ```
+
+### 2026-11-17T12:32:27.177Z : /developer — user
+
+> /developer S0 scaffold + tooling from docs/architecture.md
+
+### 2026-11-17T12:33:22.557Z : /developer — assistant
+
+> S0 is the scaffold. Before choosing anything I checked the current package versions on npm. Two findings change the plan:
+> 
+> - **AI SDK v7 (`ai`) can only be loaded as an ES module.** It has no CommonJS build.
+> - **NestJS 12 is also ES-module only.**
+> 
+> Jest, the test runner the architecture picked for the API, handles ES modules badly: it needs an experimental Node flag, and mocks are awkward. Two decisions follow from this.
+> 
+> ---
+> 
+> ❓ **D17 — Test runner and build for the API.** Example: the S3 e2e test does `import { MockLanguageModel } from 'ai/test'` inside a Nest test module. It must run in plain `npm test`, with no flags.
+> - **(a) ES modules everywhere, Vitest for the API too.** SWC (via `unplugin-swc`) compiles the decorators Nest needs. The whole repo uses one test runner and one config style, and supertest works the same.
+> - **(b) Jest with `--experimental-vm-modules` and ts-jest in ESM mode.** This matches the architecture doc as written, but depends on an experimental Node flag. ESM mocking is clumsy and is the usual source of "works on my machine" failures for a reviewer.
+> - **(c) Pin the older CommonJS NestJS 11, keep Jest, and load `ai` with dynamic `import()`.** This fights the tooling and needs workarounds in every file that touches the SDK.
+> 
+> ➡️ **Recommend (a).** It is the least fragile for someone cloning a public repo. The architecture doc and README will note that Jest was swapped for Vitest and why.
+> 
+> ---
+> 
+> ❓ **D18 — How the apps use `packages/contracts`.** Example: `apps/api` imports `SearchProductsInputSchema` and `apps/web` imports `ProductGroup` from the same package.
+> - **(a) Compile contracts with `tsc` into `dist/`** (JavaScript plus type files). `npm run dev` watches it, and `predev`/`pretest` build it first. Every consumer reads plain JavaScript, which is the standard pattern and has no surprises.
+> - **(b) Point the package straight at its TypeScript source (`src/index.ts`).** No build step, and Vite and Vitest handle it fine. But the Nest build only compiles its own `src/`, so the API needs custom paths or SWC tricks.
+> - **(c) Copy the types into each app.** This breaks DRY and the "contracts never duplicated" rule. Listed only to reject it.
+> 
+> ➡️ **Recommend (a).** The build step is one small `tsc -b`, and it keeps the API build boring.
+> 
+> ---
+> 
+> Defaults I'll use unless you object (all current versions):
+> - `concurrently` for `npm run dev`.
+> - A single root ESLint flat config plus Prettier.
+> - Tailwind v4 through `@tailwindcss/vite`.
+> - React 19, React Router 8, TanStack Query 5 and zod 4.
+> - TypeScript is now on 7.x. If its decorator support gives Nest any trouble, I'll pin 5.9 and tell you.
+
+### 2026-11-17T12:34:20.177Z : /developer — user
+
+> agree to recomendations

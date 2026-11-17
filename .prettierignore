@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+data
+prototypes
+docs
+.claude
+package-lock.json

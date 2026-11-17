@@ -208,3 +208,24 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D14 = D on top of A · D15 (a) → new rule R9 + AC3.9 · D16 (a).
 **Artifacts:** `docs/design.md`; `docs/requirements.md` (R9, AC3.9, US6b, scope); `docs/architecture.md` (D14 row, R9 in filter, `GET /api/products?limit=10`, routes `/` + `/chat/:id`, shells, localStorage pointer, slices S4–S7 with S7 widget cut-first); ADR 0003 amendment; `prototypes/`.
 **Next step:** `/developer S0 scaffold + tooling from docs/architecture.md`
+
+## 2026-11-17 14:40 : /developer S0 — scaffold + tooling
+
+**User input:**
+> /developer S0 scaffold + tooling from docs/architecture.md
+
+**Found before proposing:** `ai@7.0.173` and `@nestjs/core@12` are ESM-only (`"type": "module"`); Jest needs `--experimental-vm-modules` for that. Latest: TS 7.0.2, Vite 8, Vitest 5, React 19.3, React Router 8, Tailwind 4, zod 4.
+
+**Options offered:**
+- D17 API test runner/build: (a) ESM everywhere + Vitest for api too, SWC for decorators (rec.) / (b) Jest + experimental VM modules / (c) pin Nest 11 CJS + dynamic `import('ai')`.
+- D18 Contracts: (a) `tsc` → `dist/`, watched in dev (rec.) / (b) consume TS source directly / (c) copy types per app (rejected, breaks DRY).
+- Defaults stated: concurrently, root ESLint flat config + Prettier, Tailwind v4 via `@tailwindcss/vite`.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D17 (a), D18 (a).
+**Built:** root workspaces + scripts; `packages/contracts` build; `apps/api` (Nest 12 + SWC, `parseConfig` pure zod env — model locked to `gpt-6-luna`, key never echoed — `ConfigModule`, `GET /api/health`, `configureApp` shared by main + e2e); `apps/web` (Vite 8, React 19, Router routes `/`, `/chat`, `/chat/:id` with placeholder shells, TanStack Query provider, Tailwind 4 + Inter).
+**Issues hit:** npm silently skipped runtime deps when installing alongside the unpublished `@app/contracts` → declared deps in package.json; port 3000 taken by another local project → API default port 3001 (`PORT`, Vite proxy `API_PORT`); `nest start` doesn't forward Node flags → `--exec "node --env-file-if-exists=../../.env"`.
+**Verified:** `npm run lint` clean · `npm run typecheck` exit 0 · `npm test` api 5/5, web 2/2 · `npm run dev` → `GET localhost:5173/api/health` = `{"status":"ok"}` via proxy · `vite build` ok.
+**Next step:** `/developer S1 Catalog from docs/architecture.md`

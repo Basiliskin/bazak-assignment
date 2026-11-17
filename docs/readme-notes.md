@@ -28,3 +28,8 @@
 - Out-of-stock Products hidden from results (R9) — found while prototyping.
 - Widget keeps only a pointer (active Conversation id) in localStorage; clearing it loses nothing.
 - With more time: dark mode, keyboard shortcuts, virtualised long threads, widget as an embeddable script for any site.
+
+## /developer S0
+- Setup: Node ≥ 22.12 (built on 26), `npm install`, `cp .env.example .env` + key, `npm run dev` → web http://localhost:5173, API http://localhost:3001/api. `npm test`, `npm run lint`, `npm run typecheck`.
+- Stack is ESM end to end; Vitest everywhere (Jest rejected: needs experimental flag for ESM-only AI SDK v7 / Nest 12).
+- API refuses to start without a key or with any model other than `gpt-6-luna`.
