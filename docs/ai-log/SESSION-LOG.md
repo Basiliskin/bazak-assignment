@@ -540,3 +540,33 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Verified:** typecheck, lint clean; tests api 152 · web 68 · evals 28; live eval 7/7 incl. `relevant` on beach (beach recommendations 4 → 1, expected under D50).
 **Artifacts:** catalog domain/application + specs, chat-turn service, evals, `docs/qa-report.md` (Q1 fixed, eval table), interview-prep, readme-notes.
 **Next step:** `/readme` (refresh the retrieval section with the Q1 fix)
+
+## 2026-11-17 18:05 : /readme — Section 3 Retrieval refresh (S8 RAG + Q1 fix)
+
+**User input:**
+> /readme retrieval — add the Q1 fix: keyword-less matches ordered by similarity to semanticQuery (D54), the shorter Recommended Group trade-off, and the eval "relevant" rule (D55)
+> user recommended options
+
+**Found:** README Retrieval still said "I skipped vector RAG" (written before S8). Q1 fix checked in `filter-products.ts` (`bySimilarity`), `catalog.service.ts` (`similarityOrder`), `evals/checks.ts` (`checkMatchCategories` → `relevant`).
+**Options offered:** (i) replace the stale no-RAG paragraph with S8 RAG (rec.) / keep; (ii) eval rule briefly here, fully in Evaluation (rec.) / only here.
+**Decision:** (i) replace, (ii) brief here. Drafts (a) bullets / (b) prose offered next.
+
+**User input:**
+> b
+
+**Decision:** (b) prose, as drafted.
+**Artifacts:** `README.md` (Retrieval strategy: no-RAG sentence replaced by the local-embeddings paragraph + the Q1 similarity-order paragraph).
+**Next step:** `/readme conversation` (Section 4, still open).
+
+## 2026-11-17 18:20 : /readme — Section 4 Conversation & state
+
+**User input:**
+> /readme conversation
+> yes
+> b
+
+**Found:** checked ADR 0003, architecture "Persistence & failure modes", `sqlite.conversation-repository.ts` (zod on read, skip corrupt rows, transactional save), `chat-turn.service.ts` (user Message saved before the stream), `ai-sdk.llm.ts` (`REPLY_NOT_SAVED` error part), `useWidgetState.ts` (localStorage pointer in try/catch), qa-report AC5.2–5.4.
+**Options offered:** include the "DB deleted while running" gap and "tab closed mid-reply" (yes); history as one sentence pointing to Retrieval (yes); drafts (a) bullets / (b) prose (rec.).
+**Decision:** include both; (b) prose.
+**Artifacts:** `README.md` (Conversation & state).
+**Next step:** `/readme evaluation` (Section 5, still open).

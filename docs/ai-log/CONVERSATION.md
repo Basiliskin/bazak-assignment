@@ -2171,3 +2171,268 @@
 ### 2026-11-17T15:38:04.299Z : /qa — user
 
 > agree to recomendations
+
+### 2026-11-17T15:38:33.598Z : /qa — assistant
+
+> I recorded your decisions (D51–D53) and committed the QA docs as `5f3c547`. I made no code changes this run, because the one real fix (Q1) is a job for `/developer`.
+> 
+> - **Q1 (D51 a):** goes to `/developer`. When a search has no keywords, sort the matches by similarity to `semanticQuery` instead of by rating. Today "something for the beach" shows an Echo, a Matebook, a Rolex and Water as its matches. The eval passes anyway because no rule checks whether matches are relevant.
+> - **Q2 (D52 a):** added to the README's "with more time" list. After a failed model load, every search tries the load again.
+> - **Q3 (D53 a):** also on that list. In a two-request message, a "You might also like" card can repeat a product shown for the other request.
+> - **Q4 (D53 a):** ignored. If the embedder returns too few vectors, those products are silently never recommended, which is harmless.
+> 
+> What else is in the commit:
+> - **`docs/qa-report.md`:** the S8 re-check results (all suites green, live eval 7/7, browser smoke test) and the Q1–Q4 findings with their decisions.
+> - **`docs/readme-notes.md`:** what the tests miss. That's whether matches are relevant, whether the 0.35 threshold is right beyond 7 cases, and the real model download, since tests use a fake embedder.
+> - **`docs/interview-prep.md` and `docs/ai-log/SESSION-LOG.md`:** questions and the log entry for this run.
+> 
+> The dev servers (`npm run dev`) are still running in the background.
+> 
+> ➡️ Next step: `/developer`
+> Prompt to paste:
+> ```
+> /developer fix Q1 from docs/qa-report.md — order relevance-sorted matches with no keywords by similarity to semanticQuery (D51 a), keep the shown-page exclusion for the Recommended Group, add an eval rule that beach matches are beach-related
+> ```
+
+### 2026-11-17T15:38:46.644Z : /developer — user
+
+> /developer fix Q1 from docs/qa-report.md — order relevance-sorted matches with no keywords by similarity to semanticQuery (D51 a), keep the shown-page
+>   exclusion for the Recommended Group, add an eval rule that beach matches are beach-related
+
+### 2026-11-17T15:39:32.057Z : /developer — assistant
+
+> I've read Q1, D51, the catalog code (`filter-products.ts`, `CatalogService`, `RecommendationService`, `rankBySimilarity`) and the eval checks. There are two real choices to make before I write the failing tests.
+> 
+> ❓ **D54: How should the match page get its similarity order?**
+> - **(a) Reuse `VectorIndexPort.nearest`, with no threshold and no cap (Recommended).** A new method, `RecommendationService.similarityOrder(semanticQuery, price)`, calls `nearest` with `minScore: -Infinity`, `k: all` and no exclusions, and returns the product ids from most to least similar. `filterProducts(products, query, order?)` stays pure. When the sort is `relevance` and there are no keywords, it sorts by position in `order` (rating breaks ties) and then takes the page. The port doesn't change. If the index isn't ready or anything fails, `order` is null and today's rating order applies.
+> - **(b) Add a port method `VectorIndexPort.scores(vector, ids)` that returns a cosine per id.** This makes the intent explicit and lets pgvector score only the matched ids. The cost is a third port method, a second adapter path and a new domain function.
+> - **(c) Filter as well as order: drop keyword-less matches below `MIN_SIMILARITY`.** "Beach essentials" would stop saying "of 190", but the match group would then copy the Recommended Group, and most of them would end up empty. It's also not what D51 (a) asked for.
+> 
+> ➡️ I recommend (a). It's the smallest change that fixes the order, it adds no new port surface, and paging stays stable because "Show more" reuses the stored `semanticQuery` (D31), so offset 4 keeps the same order.
+> 
+> ❓ **D55: How does the eval decide that the beach matches are beach-related?**
+> - **(a) Add a new expectation, `matchCategories`, listing allowed category slugs, with the rule `relevant`: every card in a match group must be in that list (Recommended).** For beach the list would be `sunglasses, womens-dresses, tops, mens-shirts, skin-care, swimwear-like (none in the catalog), sports-accessories, beauty, fragrances, womens-bags, mens-shoes, womens-shoes`. It's deterministic and fits the shape of the existing R4/R6 checks.
+> - **(b) Match words in titles and descriptions** (beach, sun, summer, swim…). This is brittle: "Water" or "Rolex" descriptions could pass or fail by luck.
+> - **(c) Use an LLM judge.** It costs extra calls, the result isn't deterministic, and it's overkill for one case.
+> 
+> ➡️ I recommend (a). It's a plain pure check with a spec, and it would have failed today on Echo, Matebook and Rolex.
+> 
+> **Defaults I'll follow unless you object:**
+> - **Shown-page exclusion stays as it is (D50).** The Recommended Group still excludes only the 4 products shown. With similarity order, recommendations will often be what the next "Show more" page would show; D50 already accepted that.
+> - **Category-only searches get the similarity order too.** For example, "show me smartphones" has no keywords, so it would be ordered by similarity instead of rating. Searches with keywords keep keyword score first.
+> - **The `ambiguous` case gets no new rule,** because "cheap and cool" has no category list I could defend.
+> - **Paperwork:** a Q1 status update in `qa-report.md`, plus entries in SESSION-LOG, interview-prep and readme-notes, then a `fix(catalog): …` commit.
+> 
+> Pick letters for D54 and D55, or mix them, and I'll start with the failing tests.
+
+### 2026-11-17T15:41:47.560Z : /developer — user
+
+> question - can we use LLM for confidensial score ?
+
+### 2026-11-17T15:41:58.719Z : /developer — assistant
+
+> Yes, it's possible, but it depends on where the score is used. You probably mean a "confidence" score; there are two places it could go.
+> 
+> **1. In the eval, as the beach rule (D55 c).** After the run, a `***REDACTED***` call gets the shopper's request plus each match card's title and category, and returns a 0–1 relevance score per card. The rule passes if, say, at least 3 of the 4 cards score ≥ 0.6.
+> - **Pros:** it works for any case, including `ambiguous` ("cheap and cool"), where a fixed category list can't. It also matches how a person would judge relevance.
+> - **Cons:** it isn't deterministic, so a case can flip between runs. It adds one call per case, which is cheap at 7 cases, and the judge needs its own prompt, kept stable. The usual guard is temperature 0, a fixed rubric, and a pure-function spec for the pass/fail logic using a fake judge.
+> - **Verdict:** reasonable. It's a common "LLM-as-judge" pattern and it's good interview material. I'd use it alongside the category list, not instead of it: the deterministic rule catches clear failures, and the judge covers the fuzzy cases.
+> 
+> **2. At runtime, to rank or filter the matches.** The model would score candidates before they're shown.
+> - **Cons:** it adds latency and cost to every search. The model would need to see the candidate products, so 190 products means a big prompt. It also brings back hallucination risk: scores for products it never saw, or made-up ids. This is the work ADR 0004 already gave to embeddings, which are local, about 3 ms per query and deterministic.
+> - **Partial version:** the model already sets `confidence: 'guessed' | …` on each query. That's a confidence score for the whole search, not per product, and it already drives the Assumption text (R2).
+> - **Verdict:** not for this assignment. Similarity order (D54 a) fixes Q1 without it.
+> 
+> So my updated suggestion for D55 is **(a) category list plus (c) an LLM judge as a second rule**, applied to `beach` and `ambiguous`. Or keep (a) alone if you want the eval fully deterministic.
+> 
+> Which did you mean, the eval judge or runtime scoring? And what are your picks for D54 and D55?
+
+### 2026-11-17T15:42:59.649Z : /developer — user
+
+> I prefer simple and reliable solution
+
+### 2026-11-17T15:46:21.700Z : /developer — assistant
+
+> ✅ Q1 is fixed and committed as `b6799f5`. The fix uses D54 (a) for the ordering and D55 (a) for the eval rule, the simple and deterministic options you asked for. Typecheck and lint are clean, all tests pass (api 152, web 68, evals 28), and the live eval passes 7/7, including the new beach rule.
+> 
+> **What changed**
+> - **Ordering:** a broad search with no keywords, sorted by relevance, now orders its matches by similarity to `semanticQuery` instead of by rating. "Something for the beach" now shows beach items first, not the Echo, Matebook and Rolex. If the embedding model is still loading or failed, the order falls back to rating as before. Searches with keywords keep keyword scoring.
+> - **"Show more" pages:** these never get a Recommended Group, so I couldn't hang the ordering on the recommendation flag. `search` now takes `semanticQuery` on every page and a separate `recommend` flag for page 1 only. Without that, page 2 would have gone back to rating order and repeated or skipped products.
+> - **Recommended Group:** it still excludes only the 4 products on the shown page (D50), as you asked.
+> - **Eval rule:** a new rule, `relevant`, checks that every match card for the beach case is in a beach-related category (sunglasses, tops, dresses, skin care and so on). It would have failed on the old results.
+> - **Docs:** Q1 is marked fixed in `docs/qa-report.md`, and the live eval table there is refreshed. I also added entries to SESSION-LOG, `docs/interview-prep.md` and `docs/readme-notes.md`.
+> 
+> **Things to know**
+> - **Fewer recommendations:** beach's "You might also like" dropped from 4 cards to 1. The most similar products now fill the match page, and only one more is similar enough to recommend. That's the expected cost of keeping the shown-page exclusion, and it's noted in readme-notes.
+> - **Category-only searches change too:** "show me smartphones" has no keywords, so it's now ordered by similarity instead of rating.
+> - **Test-first wasn't fully strict:** I wrote the tests before the code but didn't run them to watch them fail before implementing.
+> - **No browser check:** I didn't smoke-test this in the browser; the evidence is the specs and the live eval.
+> - **Left uncommitted:** `CONVERSATION.md`, which the logging hook writes, and the untracked `README.md`.
+> 
+> I've also saved your preference for simple, reliable solutions to memory.
+> 
+> ➡️ Next step: `/readme`
+> Prompt to paste:
+> `/readme retrieval — add the Q1 fix: keyword-less matches ordered by similarity to semanticQuery (D54), the shorter Recommended Group trade-off, and the eval "relevant" rule (D55)`
+
+### 2026-11-17T15:46:38.754Z : /readme — user
+
+> /readme retrieval — add the Q1 fix: keyword-less matches ordered by similarity to semanticQuery (D54), the shorter Recommended Group trade-off, and the eval
+>   "relevant" rule (D55)
+
+### 2026-11-17T15:47:06.665Z : /readme — assistant
+
+> I checked the code against the docs. Before drafting, here are the key points to confirm.
+> 
+> **One problem first:** the current README Retrieval section is out of date from before S8. It still says *"I skipped vector RAG: ***REDACTED*** can't create embeddings…"*, but S8 added local embeddings and the Recommended Group (ADR 0004). If I add the Q1 fix on top of that, the section contradicts itself. I suggest replacing that paragraph with a short RAG paragraph, then adding the Q1 points.
+> 
+> **What the sources and code say:**
+> 
+> 1. **RAG (S8, ADR 0004).** It uses a local `all-MiniLM-L6-v2` model, because ***REDACTED*** can't embed and `text-embedding-3-small` isn't allowed. The model writes a `semanticQuery` (an expanded description of what fits). Each search returns a keyword **match** group plus a ✨ "You might also like" group, built in code. That group uses cosine ≥ 0.35, the same price and stock filters, any category, at most 4 cards, and leaves out the shown match page. The model loads in the background. Until it's ready, or if it fails, search returns matches only.
+> 2. **The Q1 bug.** A broad search with no keywords and no category ("something for the beach") returned the whole catalog as matches, sorted by rating. So "Beach essentials 1–4 of 190" showed an Echo, a Matebook, a Rolex and water.
+> 3. **Q1 fix (D54 a).** When a relevance search has no keywords, matches are now ordered by similarity to `semanticQuery`, using all indexed Products with no threshold. This happens on every page, so "Show more" doesn't fall back to rating and repeat or skip Products. If the model isn't loaded, rating order is the fallback. Searches with keywords still score keywords first (`filter-products.ts:72`, `catalog.service.ts:53`). I rejected filtering matches by the 0.35 threshold (D54 c): it would duplicate the Recommended Group and leave most broad searches empty.
+> 4. **Trade-off.** The most similar Products now fill the match page. Since the Recommended Group only excludes the shown page (D50), it gets shorter: beach went from 4 recommendations to 1. It can also repeat Products that "Show more" would show next.
+> 5. **Eval rule `relevant` (D55 a).** The beach case passes only if every match card's category is in an allow-list (sunglasses, tops, womens-dresses, mens-shirts, …) (`evals/checks.ts:162`). Q1 had passed 7/7 because no rule checked meaning. I rejected an LLM judge because it isn't deterministic and costs extra calls. The live eval passes 7/7.
+> 
+> **Where the eval rule goes:** the README doesn't have an Evaluation section yet (it stops after Retrieval). I suggest one sentence about the rule here, with the full explanation in Section 5 later.
+> 
+> Please confirm or correct:
+> - **(i)** Replace the stale "skipped vector RAG" paragraph with the S8 RAG paragraph? (I recommend yes.)
+> - **(ii)** Mention the eval rule briefly here and fully in Evaluation later? (I recommend yes.)
+> - **(iii)** Anything to add or drop from points 1–5?
+> 
+> Once you answer, I'll show you two drafts: terse bullets and short prose.
+
+### 2026-11-17T15:47:54.313Z : /readme — user
+
+> user recommended options
+
+### 2026-11-17T15:48:18.933Z : /readme — assistant
+
+> Here are two drafts. Both replace this sentence in the current section: *"I skipped vector RAG: … already does the semantic step."* Everything else in the section stays.
+> 
+> ---
+> 
+> **(a) Terse bullets**
+> 
+> > **Similar Products come from local embeddings** (ADR 0004):
+> > - Keywords miss requests that share no word with the Product ("cellphone", "something for the beach"). ***REDACTED*** can't create embeddings and `text-embedding-3-small` isn't an allowed model, so I run `all-MiniLM-L6-v2` in-process: 24 MB, downloaded once into `data/models/`, 2–3 ms per query.
+> > - The model also fills in `semanticQuery`, a longer description of what would fit. Under the matches, the code adds a ✨ "You might also like" group: cosine ≥ 0.35, the same price and stock filters, any category, at most 4 cards, and nothing from the page already shown.
+> > - Until the model has loaded, or if loading fails, search returns matches only.
+> > - **No keywords → order by similarity (Q1).** "Something for the beach" (no category, no keywords) used to return the whole catalog sorted by rating: "Beach essentials 1–4 of 190" was an Echo, a Matebook, a Rolex and water. Now a relevance search without keywords orders every Product by similarity to `semanticQuery`. It does this on every page, so "Show more" doesn't repeat or skip Products. Rating order is the fallback while the model is loading.
+> > - Rejected: filtering the matches by 0.35 instead. That would duplicate the Recommended Group and leave most broad searches empty.
+> > - Trade-off: the most similar Products now fill the match page, so the Recommended Group gets shorter (beach went from 4 to 1). It can also show what "Show more" would show next.
+> > - The eval passed 7/7 with this bug because no rule checked meaning. The beach case now has a `relevant` rule: every match card must be in a beach category. I chose a category list over an LLM judge so the eval stays deterministic.
+> 
+> ---
+> 
+> **(b) Short prose**
+> 
+> > **Similar Products come from local embeddings** (ADR 0004). Keywords miss requests that share no word with the Product, like "cellphone" or "something for the beach". ***REDACTED*** can't create embeddings and `text-embedding-3-small` isn't an allowed model, so I run `all-MiniLM-L6-v2` in-process: 24 MB, downloaded once into `data/models/`, 2–3 ms per query. The model also fills in `semanticQuery`, a longer description of what would fit. The code embeds it and adds a ✨ "You might also like" group under the matches: cosine ≥ 0.35, the same price and stock filters, any category, at most 4 cards, and nothing from the page already shown. Until the model has loaded, or if loading fails, search returns matches only.
+> >
+> > **A search with no keywords is ordered by similarity.** QA found that "something for the beach" returned the whole catalog sorted by rating: "Beach essentials 1–4 of 190" was an Echo, a Matebook, a Rolex and water. Now a relevance search without keywords orders every Product by similarity to `semanticQuery`. It does this on every page, so "Show more" doesn't repeat or skip Products. Rating order is the fallback while the model is loading. I didn't filter the matches by 0.35 instead, because that would duplicate the Recommended Group and leave most broad searches empty. The trade-off is that the most similar Products now fill the match page, so the Recommended Group gets shorter (beach went from 4 to 1) and can show what "Show more" would show next. The eval passed 7/7 with this bug because no rule checked meaning. The beach case now has a `relevant` rule that requires every match card to be in a beach category. I chose that over an LLM judge to keep the eval deterministic.
+> 
+> ---
+> 
+> I recommend **(b)**. The rest of the section is already prose, and the Q1 story reads better as cause → fix → cost than as separate bullets. Pick (a) or (b), or edit either one, and I'll write it into `README.md` and commit.
+
+### 2026-11-17T15:48:30.410Z : /readme — user
+
+> b
+
+### 2026-11-17T15:48:55.621Z : /readme — assistant
+
+> I wrote draft (b) into the Retrieval section of `README.md`. The outdated sentence saying "I skipped vector RAG" is gone. In its place are two paragraphs: one on how similar Products come from local embeddings, and one on the Q1 fix, which also covers the shorter Recommended Group trade-off and the `relevant` eval rule. Before writing it, I checked each claim against `filter-products.ts`, `catalog.service.ts` and `evals/checks.ts`, and logged both of your answers in `SESSION-LOG.md`.
+> 
+> Two open points:
+> 
+> - **Missing parameter:** the sentence listing what `search_products` takes (`README.md:51`) still doesn't name `semanticQuery`, even though the new paragraph depends on it. Should I add it to that list?
+> - **Nothing is committed yet:** `README.md` has never been committed. Earlier `/readme` runs left the unfinished draft out of git, so I did the same. Sections 4–6 (conversation and state, evaluation, known limitations) aren't written yet. I can commit the README now or wait until those are done; which do you want?
+> 
+> ➡️ Next step: `/readme conversation`, which continues with section 4 (conversation and state).
+
+### 2026-11-17T15:49:07.544Z : /readme — user
+
+> /readme conversation
+
+### 2026-11-17T15:49:37.613Z : /readme — assistant
+
+> I've checked the persistence sources against the code (ADR 0003, the architecture failure-mode table, `sqlite.conversation-repository.ts`, `chat-turn.service.ts`, `ai-sdk.llm.ts`, `useWidgetState.ts` and the QA report). These are the key points for **Conversation & state**. Please confirm or correct them before I draft.
+> 
+> **Where state lives and why**
+> 1. Conversations are stored on the server in SQLite (`data/app.db`) using Node's built-in `node:sqlite`, so there's no native dependency. There are two tables, `conversations` and `messages`, with one row per Message and WAL mode on.
+> 2. The browser sends only the new Message (`{conversationId, message}`). The server loads the history, so nobody can change what the model sees by editing it in the browser. `useChat` is filled from `GET /api/conversations/:id`.
+> 3. The browser keeps one small piece of state: the widget's `{ open, conversationId }` in localStorage. It's checked with zod and every read is in a try/catch. On the full page, the Conversation id is in the URL (`/chat/:id`).
+> 4. Rejected options:
+>    - **localStorage:** clearing site data loses the chat, the ~5 MB quota fills up with Product Groups, and history sent from the client can be changed.
+>    - **IndexedDB:** it has the same problem of losing data when the browser is cleared, and its API is clumsier.
+> 5. Trade-off: there's no auth, so everyone using the same server sees one Conversation list. Adding users later would mean a `shopperId` column plus auth.
+> 
+> **Failure modes (each one checked in code or a test)**
+> - **Browser storage cleared:** nothing is lost. The widget opens a new chat, and every Conversation is still in ☰ and the sidebar.
+> - **Corrupted row:** if a payload fails zod on read, that row is skipped and logged, and the rest of the chat loads. A test covers this. Messages saved before S8 still load because the stored-data schema fills in defaults for the newer fields.
+> - **Storage full / write fails:** the user's Message is saved before the model runs. If saving the reply fails, the Shopper still sees the streamed reply, then the error "Your reply was shown but could not be saved. It may be missing after a refresh." A test covers this (`chat-turn.service.spec.ts`).
+> - **DB file deleted while the API runs:** the QA smoke test found no crash, but the data is gone after a restart, and the chat shows "Conversation not found" with a New chat button. The tests don't cover this.
+> - **Unknown id or LLM error mid-stream:** an unknown id gives a 404 and "Conversation not found". An LLM error mid-stream keeps the partial text and shows Retry, and the user's Message is already saved.
+> - **Tab closed mid-reply:** the server keeps reading the stream to the end, so the reply still finishes and gets saved.
+> 
+> **What the model sees**
+> - The last 20 Messages. After each reply there's a system note listing the Products shown (id, title, price, which search). If I put these notes inside the assistant text, the model copied them into its replies, which I saw live.
+> 
+> **Questions**
+> - Should I include the "DB deleted while running" gap and the "tab closed mid-reply" behaviour, or leave them out to keep the section short?
+> - Should the "last 20 Messages + system notes" paragraph go here, or is the follow-ups bullet in Retrieval enough? My recommendation is one sentence here that points to that bullet.
+> 
+> Once you confirm, I'll give you the two drafts: terse bullets and short prose.
+
+### 2026-11-17T15:50:52.716Z : /readme — user
+
+> yes
+
+### 2026-11-17T15:51:05.951Z : /readme — assistant
+
+> Got it. I'll include both gaps and add one sentence on history that points to the Retrieval bullet. Here are the two drafts.
+> 
+> **(a) Terse bullets**
+> 
+> ```markdown
+> ## Conversation & state
+> 
+> Conversations live on the server in SQLite (`data/app.db`, built-in `node:sqlite`, one row per Message). The browser sends only the new Message; the server loads the history, so the model's context can't be edited from the browser (ADR 0003). The model sees the last 20 Messages plus the Product notes described under Retrieval.
+> 
+> The browser keeps only a pointer: the full page has the Conversation id in the URL (`/chat/:id`), the widget keeps `{ open, conversationId }` in localStorage.
+> 
+> Rejected: **localStorage** (clearing site data loses the chat mid-conversation, the ~5 MB quota fills with Product Groups, client-sent history can be edited) and **IndexedDB** (same loss on clear, clumsier API). The cost: there's no auth, so everyone on one server shares one Conversation list.
+> 
+> - **Browser storage cleared:** nothing is lost. The widget opens a new chat; every Conversation is still in the list.
+> - **Corrupted data:** each Message is checked with zod on read. A bad row is skipped and logged, the rest of the chat loads. A bad widget pointer means a new chat.
+> - **Storage full / write fails:** the Shopper's Message is saved before the model runs. If saving the reply fails, the reply still streams and then shows "Your reply was shown but could not be saved."
+> - **Tab closed mid-reply:** the server reads the stream to the end, so the reply is still saved.
+> - **Model error mid-stream:** the partial text stays, with a Retry button.
+> - **Gap:** deleting `data/app.db` while the API runs doesn't crash it, but the chats are gone after a restart ("Conversation not found" + New chat). No test covers this.
+> ```
+> 
+> **(b) Short prose**
+> 
+> ```markdown
+> ## Conversation & state
+> 
+> I keep Conversations on the server, in a SQLite file (`data/app.db`, Node's built-in `node:sqlite`) with one row per Message. The browser sends only the new Message, and the server loads the history itself, so nobody can change what the model sees from the browser (ADR 0003). The model gets the last 20 Messages plus the Product notes described under Retrieval. The browser keeps only a pointer: the full page has the Conversation id in the URL, and the widget keeps `{ open, conversationId }` in localStorage.
+> 
+> I rejected localStorage because clearing site data would lose the chat mid-conversation, the ~5 MB quota fills up with Product Groups, and history sent from the client can be edited. IndexedDB has the same loss-on-clear problem. The cost of the server approach is that, with no auth, everyone on one server shares one Conversation list.
+> 
+> What happens when things go wrong:
+> - **Browser storage cleared:** nothing is lost. The widget starts a new chat, and every Conversation is still in the list.
+> - **Corrupted data:** each Message is checked with zod when it's read. A bad row is skipped and logged, and the rest of the chat loads. A bad widget pointer just opens a new chat.
+> - **Storage full or a write fails:** the Shopper's Message is saved before the model runs. If saving the reply fails, the Shopper still sees it stream, followed by "Your reply was shown but could not be saved."
+> - **Tab closed mid-reply:** the server keeps reading the stream, so the reply is still saved.
+> - **Model error mid-stream:** the partial text stays, with a Retry button.
+> 
+> One gap: if `data/app.db` is deleted while the API runs, nothing crashes, but the chats are gone after a restart and the page shows "Conversation not found". No test covers this.
+> ```
+> 
+> I recommend **(b)**. It matches the prose you picked for Retrieval, and keeping the failure cases as bullets makes them easy to scan. Pick a or b, or edit either one.
+
+### 2026-11-17T15:51:21.781Z : /readme — user
+
+> b
