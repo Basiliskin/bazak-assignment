@@ -42,3 +42,4 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How do the apps share types without copying them? → D18, `packages/contracts` built to `dist/`
 - How do you make sure the API key can't leak and only `gpt-6-luna` is used? → `apps/api/src/shared/config/app-config.ts` (`z.literal`, errors never echo values) + spec
 - Why is config parsing a pure function separate from the Nest module? → functional core: `parseConfig` unit-tested without Nest; `loadConfigOrExit` is the shell
+- Where is `.env` loaded and why not a CLI flag or `@nestjs/config`? → D19, `apps/api/src/shared/config/config.module.ts` (app owns its config; works for every runner; cwd-independent paths)

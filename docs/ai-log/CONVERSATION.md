@@ -677,3 +677,59 @@
 ### 2026-11-17T12:34:20.177Z : /developer — user
 
 > agree to recomendations
+
+### 2026-11-17T12:39:14.721Z : /developer — assistant
+
+> S0 is done and committed as `a89e597`. Lint is clean, typecheck passes, and all tests pass (API 5/5, web 2/2). With `npm run dev` running, `GET localhost:5173/api/health` returns `{"status":"ok"}` through the Vite proxy, and the production web build succeeds.
+> 
+> **What's in place:**
+> - **Root:** an npm-workspaces monorepo (the API, the web app and a shared contracts package), with one ESLint config and Prettier. The scripts are `dev`, `test`, `lint`, `typecheck`, `build` and `format`.
+> - **`packages/contracts`:** the shared types and schemas, compiled to `dist/` (D18). `npm run dev` rebuilds them on change, and they are built before `dev` and `test` start.
+> - **`apps/api`:** NestJS 12 using ES modules, compiled with SWC (D17).
+>   - Settings are checked by `parseConfig`, a pure function. The API won't start without a key, only accepts `***REDACTED***` as the model, and never prints the key in error messages.
+>   - It has a `GET /api/health` endpoint, with a unit test for the settings and an end-to-end test for health.
+> - **`apps/web`:** Vite 8, React 19, Tailwind 4 and TanStack Query.
+>   - The routes `/`, `/chat` and `/chat/:id` exist, with placeholder screens for now (full chat comes in S4, the widget in S7).
+>   - A routing test covers them.
+> 
+> **Three issues I fixed along the way:**
+> - **Port 3000 was taken** by another of your projects (`boky/services/nest-host`, running since Nov 13). I left it running and moved this API to **port 3001**, configurable with `PORT`.
+> - **npm silently skipped some dependencies** when installing them next to the local `@app/contracts` package. I listed them in each `package.json` by hand instead.
+> - **`nest start` doesn't pass Node flags through**, so `.env` wasn't loaded. I load it with `--exec "node --env-file-if-exists=../../.env"` instead.
+> 
+> Docs are updated: D17 and D18 are in `architecture.md`, and Jest is replaced by Vitest in the testing table. SESSION-LOG, interview-prep and readme-notes have new entries.
+> 
+> ➡️ Next step:
+> ```
+> /developer S1 Catalog from docs/architecture.md
+> ```
+
+### 2026-11-17T12:40:55.277Z : /developer — user
+
+> "nest start doesn't pass Node flags through, so .env wasn't loaded. I load it with --exec "node --env-file-if-exists=../../.env" instead." Its sounds like patch...
+
+### 2026-11-17T12:41:17.689Z : /developer — assistant
+
+> You're right that it's a patch. It also leaves loading `.env` to whoever starts the process, so `node dist/main.js`, the tests and any future runner would each have to remember the flag. Loading should happen inside the app, in one place.
+> 
+> ❓ **D19 — Where `.env` gets loaded**
+> - **(a) Use `@nestjs/config` (`ConfigModule.forRoot`), the official NestJS way.**
+>   - It reads the root `.env` and runs our pure `parseConfig` as its `validate` function.
+>   - The app keeps its typed `AppConfig`.
+>   - It works the same however the app starts, and needs no flags.
+>   - The cost is one more dependency, and the injected config service hands back loosely typed values that need a small typed wrapper.
+> - **(b) Use Node's built-in `process.loadEnvFile()` inside the config loader.**
+>   - It reads the file from a fixed path relative to the source file, so it doesn't matter which folder the app is started from.
+>   - If the file is missing it's skipped, so real environment variables still work.
+>   - No new dependency, and it's about 3 lines in the code that already reads the config.
+> - **(c) Keep the `--exec` flag.** Rejected: every way of starting the app has to repeat it.
+> 
+> ➡️ **I recommend (b).** It fixes the real problem (the app loads its own config) with the least code, and `parseConfig` stays the single point that checks values. `@nestjs/config` mostly adds value with several config namespaces or per-environment files, which this project doesn't have.
+> 
+> The README will mention (a) as the option a larger app would use.
+> 
+> Which one?
+
+### 2026-11-17T12:41:37.862Z : /developer — user
+
+> b

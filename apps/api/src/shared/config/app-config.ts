@@ -1,3 +1,4 @@
+import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 
 /** The only model this assignment's key may use. */
@@ -9,7 +10,7 @@ const EnvSchema = z.object({
   OPENAI_KEY: z.string({ error: MISSING_KEY }).min(1, MISSING_KEY),
   OPENAI_MODEL: z.literal(ALLOWED_MODEL).default(ALLOWED_MODEL),
   PORT: z.coerce.number().int().positive().default(3001),
-  DATABASE_PATH: z.string().min(1).default('../../data/app.db'),
+  DATABASE_PATH: z.string().min(1).default('data/app.db'),
   DUMMYJSON_URL: z.url().default('https://dummyjson.com'),
 });
 
@@ -23,8 +24,11 @@ export interface AppConfig {
 
 export type ConfigResult = { ok: true; config: AppConfig } | { ok: false; errors: string[] };
 
-/** Pure: raw environment → validated config, or readable errors (never echoes values — the key stays secret). */
-export function parseConfig(env: Record<string, string | undefined>): ConfigResult {
+/**
+ * Pure: raw environment → validated config, or readable errors (never echoes values — the key stays secret).
+ * Relative paths are resolved against `rootDir` (the repo root), never the working directory.
+ */
+export function parseConfig(env: Record<string, string | undefined>, rootDir: string): ConfigResult {
   const parsed = EnvSchema.safeParse(env);
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) };
@@ -36,7 +40,10 @@ export function parseConfig(env: Record<string, string | undefined>): ConfigResu
       openAiKey: e.OPENAI_KEY,
       model: e.OPENAI_MODEL,
       port: e.PORT,
-      databasePath: e.DATABASE_PATH,
+      databasePath:
+        e.DATABASE_PATH === ':memory:' || isAbsolute(e.DATABASE_PATH)
+          ? e.DATABASE_PATH
+          : join(rootDir, e.DATABASE_PATH),
       dummyJsonUrl: e.DUMMYJSON_URL,
     },
   };

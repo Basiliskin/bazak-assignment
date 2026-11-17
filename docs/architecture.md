@@ -16,6 +16,7 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D8 | Tests | Unit (pure functions) · API e2e with `MockLanguageModel` · one component test · live eval script with coded rule checks |
 | D17 | Module system & test runner | **ESM everywhere; Vitest for api and web** (`unplugin-swc` for Nest decorator metadata) — `ai@7` and Nest 12 ship ESM only, Jest needs an experimental flag |
 | D18 | Contracts packaging | `packages/contracts` compiled by `tsc` to `dist/` (watched in dev; `predev`/`pretest` build it) |
+| D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
 ## Facts this design rests on (verified 2026-11-17)

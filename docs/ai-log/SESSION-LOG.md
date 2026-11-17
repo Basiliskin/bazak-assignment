@@ -226,6 +226,21 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 
 **Decision:** D17 (a), D18 (a).
 **Built:** root workspaces + scripts; `packages/contracts` build; `apps/api` (Nest 12 + SWC, `parseConfig` pure zod env — model locked to `gpt-6-luna`, key never echoed — `ConfigModule`, `GET /api/health`, `configureApp` shared by main + e2e); `apps/web` (Vite 8, React 19, Router routes `/`, `/chat`, `/chat/:id` with placeholder shells, TanStack Query provider, Tailwind 4 + Inter).
-**Issues hit:** npm silently skipped runtime deps when installing alongside the unpublished `@app/contracts` → declared deps in package.json; port 3000 taken by another local project → API default port 3001 (`PORT`, Vite proxy `API_PORT`); `nest start` doesn't forward Node flags → `--exec "node --env-file-if-exists=../../.env"`.
+**Issues hit:** npm silently skipped runtime deps when installing alongside the unpublished `@app/contracts` → declared deps in package.json; port 3000 taken by another local project → API default port 3001 (`PORT`, Vite proxy `API_PORT`); `nest start` doesn't forward Node flags → temporary `--exec` flag (replaced, see D19).
 **Verified:** `npm run lint` clean · `npm run typecheck` exit 0 · `npm test` api 5/5, web 2/2 · `npm run dev` → `GET localhost:5173/api/health` = `{"status":"ok"}` via proxy · `vite build` ok.
+**Next step:** `/developer S1 Catalog from docs/architecture.md`
+
+## 2026-11-17 14:55 : /developer S0 — env loading follow-up
+
+**User input:**
+> "nest start doesn't pass Node flags through, so .env wasn't loaded. I load it with --exec "node --env-file-if-exists=../../.env" instead." Its sounds like patch...
+
+**Options offered:**
+- D19 Where `.env` is loaded: (a) `@nestjs/config` `forRoot` with `validate: parseConfig` / (b) `process.loadEnvFile()` inside the config shell, path resolved from the module file (rec.) / (c) keep the `--exec` flag (rejected — every runner must repeat it).
+
+**User input:**
+> b
+
+**Decision:** D19 (b). Same cwd-dependence found in `DATABASE_PATH` default → `parseConfig(env, rootDir)` resolves relative paths against the repo root (pure, unit-tested).
+**Verified:** `npm run dev` and `node dist/main.js` started from `/` both serve `/api/health`; lint clean, typecheck ok, tests api 6/6, web 2/2.
 **Next step:** `/developer S1 Catalog from docs/architecture.md`

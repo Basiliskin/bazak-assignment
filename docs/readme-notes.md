@@ -33,3 +33,4 @@
 - Setup: Node ≥ 22.12 (built on 26), `npm install`, `cp .env.example .env` + key, `npm run dev` → web http://localhost:5173, API http://localhost:3001/api. `npm test`, `npm run lint`, `npm run typecheck`.
 - Stack is ESM end to end; Vitest everywhere (Jest rejected: needs experimental flag for ESM-only AI SDK v7 / Nest 12).
 - API refuses to start without a key or with any model other than `gpt-6-luna`.
+- Config: the API loads the repo-root `.env` itself (`process.loadEnvFile`, path resolved from the module, not the cwd); real env vars win; relative paths (DB) resolve against the repo root. `@nestjs/config` would fit a larger app with multiple config namespaces/environments.
