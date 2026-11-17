@@ -34,3 +34,8 @@
 - Stack is ESM end to end; Vitest everywhere (Jest rejected: needs experimental flag for ESM-only AI SDK v7 / Nest 12).
 - API refuses to start without a key or with any model other than `gpt-6-luna`.
 - Config: the API loads the repo-root `.env` itself (`process.loadEnvFile`, path resolved from the module, not the cwd); real env vars win; relative paths (DB) resolve against the repo root. `@nestjs/config` would fit a larger app with multiple config namespaces/environments.
+
+## /developer S1
+- Retrieval: whole catalog (194) fetched once (`limit=0`), cached 10 min, refreshed on demand; stale copy served if DummyJSON fails. Filtering, price limits, ranking, paging are pure functions (`filterProducts`).
+- Keyword matching is part-of-word (iPhone, Handbag) with field weights; false hits ("ring" → Touring) are kept out by the category the LLM chooses. Limitation: no synonyms/semantic match ("cellphone" → nothing unless the LLM picks category).
+- Out-of-stock Products never appear in results (R9).

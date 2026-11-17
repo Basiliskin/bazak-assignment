@@ -244,3 +244,23 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D19 (b). Same cwd-dependence found in `DATABASE_PATH` default → `parseConfig(env, rootDir)` resolves relative paths against the repo root (pure, unit-tested).
 **Verified:** `npm run dev` and `node dist/main.js` started from `/` both serve `/api/health`; lint clean, typecheck ok, tests api 6/6, web 2/2.
 **Next step:** `/developer S1 Catalog from docs/architecture.md`
+
+## 2026-11-17 15:20 : /developer S1 — Catalog
+
+**User input:**
+> /developer S1 Catalog from docs/architecture.md
+
+**Found before proposing (live, 194 products):** keyword `phone` — 22 part-of-word hits vs 1 whole-word (misses iPhone, Earphones); `bag` misses Handbag as a whole word; `ring` part-of-word also hits "Touring" (motorcycles). 92/194 Products have no brand.
+
+**Options offered:**
+- D20 Keyword matching: (a) part-of-word, any keyword, weighted by field, category narrows (rec.) / (b) whole word + plural / (c) all keywords must match.
+- D21 Cache & bad data: (a) pure `cacheStatus` + adapter with 10-min TTL, single-flight, stale-on-error, zod per product (rec.) / (b) `@nestjs/cache-manager` / (c) load once at boot.
+- Stated: price filters use DummyJSON `price` (the shown price); `GET /api/products?limit=10` stays in S7.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D20 (a), D21 (a).
+**Built:** `catalog/domain` (`filterProducts` + `scoreProduct`, `toProductCard`, `cacheStatus`, errors) · `catalog/application` (`CatalogPort` abstract class, `CatalogService` — plain class, wired by factory, no Nest import) · `catalog/infrastructure` (`parseCatalogResponse` zod, `DummyJsonCatalog`) · `catalog/presentation` (`GET /api/products/:id`) · `shared/presentation` (`toErrorResponse` pure + `DomainExceptionFilter` → `{error:{code,message}}`, unknown errors hidden) · `test/support/create-test-app.ts` (real app, fake ports).
+**Verified:** lint clean, typecheck ok, tests api 47/47, web 2/2. Live: 194/194 parsed; smartphones 15 (S8 out of stock hidden); phones ≤ $500 max $499.99; "bag" finds Handbags; "flight" → 0; `/api/products/9999` → 404 shape, `/abc` → 400 shape.
+**Next step:** `/developer S2 Conversations from docs/architecture.md`

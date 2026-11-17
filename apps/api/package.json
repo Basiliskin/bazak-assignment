@@ -15,6 +15,7 @@
     "@nestjs/testing": "^12.5.1",
     "@swc/cli": "^0.8.2",
     "@swc/core": "^1.16.22",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.6",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.2",

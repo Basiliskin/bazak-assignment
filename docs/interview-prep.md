@@ -43,3 +43,10 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How do you make sure the API key can't leak and only `gpt-6-luna` is used? → `apps/api/src/shared/config/app-config.ts` (`z.literal`, errors never echo values) + spec
 - Why is config parsing a pure function separate from the Nest module? → functional core: `parseConfig` unit-tested without Nest; `loadConfigOrExit` is the shell
 - Where is `.env` loaded and why not a CLI flag or `@nestjs/config`? → D19, `apps/api/src/shared/config/config.module.ts` (app owns its config; works for every runner; cwd-independent paths)
+
+## /developer S1
+- Why part-of-word matching when it gives false hits like "ring" → "Touring"? → D20; category narrows; ranking by field; `filter-products.spec.ts`
+- How is "under $500" guaranteed? → code, not prompt: `filterProducts` inclusive `maxPrice` (R6) + spec at 499.99/500/500.01
+- What happens when DummyJSON is down? → D21: stale copy; none → `CatalogUnavailable` → 503 / tool error (AC3.8); `dummyjson.catalog.spec.ts`
+- Why is `CatalogPort` an abstract class, not an interface? → it doubles as the Nest DI token without importing Nest into application/
+- How do errors reach the client? → `toErrorResponse` (pure) + `DomainExceptionFilter`; unknown errors never leak messages

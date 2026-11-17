@@ -16,6 +16,8 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D8 | Tests | Unit (pure functions) · API e2e with `MockLanguageModel` · one component test · live eval script with coded rule checks |
 | D17 | Module system & test runner | **ESM everywhere; Vitest for api and web** (`unplugin-swc` for Nest decorator metadata) — `ai@7` and Nest 12 ship ESM only, Jest needs an experimental flag |
 | D18 | Contracts packaging | `packages/contracts` compiled by `tsc` to `dist/` (watched in dev; `predev`/`pretest` build it) |
+| D20 | Keyword matching | Part-of-word, any keyword, weighted (title 3 · tags/brand 2 · description 1); plural keyword → singular; category narrows first |
+| D21 | Catalog cache | Pure `cacheStatus` (empty/fresh/stale) + adapter: 10-min TTL, single-flight fetch, stale copy on error, zod per product (invalid skipped) |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -113,7 +115,7 @@ Defined once in `packages/contracts` (`SearchProductsInputSchema`, `ReportOffCat
 | `search_products` | `label, category (24 slugs \| null), keywords[] (single words), minPrice, maxPrice, sortBy, offset, confidence (clear\|guessed), assumption` — `assumption` required when `guessed` | `filterProducts` (pure) on the cached catalog | `ProductGroup` (≤4 cards + `total`) |
 | `report_off_catalog` | `request` | nothing (marker for UI/evals) | `{ acknowledged: true }` |
 
-`filterProducts(products, query)` (pure): drop `stock === 0` (R9) → category exact match → keywords: a Product matches if **any** keyword appears (case-insensitive) in title, description, brand or tags, scored by match count → price range inclusive → sort (`relevance` = keyword score, then rating) → `slice(offset, offset + 4)` + `total`.
+`filterProducts(products, query)` (pure): drop `stock === 0` (R9) → category exact match → keywords: a Product matches if **any** keyword appears inside a word (case-insensitive; plural → singular) in title, tags, brand or description, scored title 3 / tags 2 / brand 2 / description 1 (D20) → price range inclusive → sort (`relevance` = keyword score, then rating) → `slice(offset, offset + 4)` + `total`.
 
 ## Query-type behaviour
 | Request | What the model does (prompt) | What the code guarantees |
@@ -180,7 +182,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 | Slice | Goal | AC |
 |---|---|---|
 | **S0** Scaffold + tooling | npm workspaces; `packages/contracts` (package.json, tsconfig, zod); Nest app with config (zod env), `GET /api/health`; Vite React app with Tailwind + Router; ESLint + Prettier; Vitest (api + web); `npm run dev` runs contracts watch + api (:3001) + web (:5173, proxy `/api`). ✅ done | — |
-| **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`. | AC3.2 (filter), AC3.7, AC3.8 |
+| **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`; `DomainExceptionFilter`. ✅ done | AC3.2 (filter), AC3.7, AC3.8 |
 | **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModel`. | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
 | **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |

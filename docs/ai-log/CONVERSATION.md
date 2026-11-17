@@ -733,3 +733,75 @@
 ### 2026-11-17T12:41:37.862Z : /developer — user
 
 > b
+
+### 2026-11-17T12:43:04.871Z : /developer — assistant
+
+> Fixed and committed (`1a4c095`). The workaround flag is gone, and the API now loads its own settings, whatever folder or command starts it.
+> 
+> **What changed (`apps/api/src/shared/config/`):**
+> - **`.env` is loaded in code.** `loadConfigOrExit` calls Node's built-in `process.loadEnvFile()` on the repo-root `.env`. That path is worked out from the location of the config file itself, so it doesn't depend on the folder you start from.
+>   - If the file is missing, it's skipped.
+>   - Variables already set in the shell take priority over `.env`.
+> - **The database path had the same problem, so I fixed it too.** The default `DATABASE_PATH` was `../../data/app.db`, which only pointed at the right place when started from `apps/api`.
+>   - `parseConfig(env, rootDir)` now resolves relative paths against the repo root.
+>   - Absolute paths and `:memory:` are kept as given.
+>   - It's still a pure function, with a new unit test.
+> - **The scripts are now plain:** `"dev": "nest start --watch"` and `"start": "node dist/main.js"`.
+> 
+> **Checks:**
+> - Both `npm run dev` and `node dist/main.js` started from `/` return `{"status":"ok"}` from `/api/health`.
+> - Lint is clean, typecheck passes, and tests pass (API 6/6, web 2/2).
+> 
+> D19 is recorded in `architecture.md`, SESSION-LOG, interview-prep and readme-notes. The README note says `@nestjs/config` would fit a larger app with several config groups or environments.
+> 
+> ➡️ Next step:
+> ```
+> /developer S1 Catalog from docs/architecture.md
+> ```
+
+### 2026-11-17T12:43:10.980Z : /developer — user
+
+> /developer S1 Catalog from docs/architecture.md
+
+### 2026-11-17T12:43:48.068Z : /developer — assistant
+
+> Before building S1 I checked how keyword matching behaves on the live catalog (194 products), comparing two ways a keyword can match:
+> 
+> | keyword | matches as part of a word | matches whole words only | caught only by part-of-word matching |
+> |---|---|---|---|
+> | `phone` | 22 | 1 | iPhone 5s, Airpods, iPhone Charger, Earphones… |
+> | `bag` | 4 | 2 | Women's **Hand**bag ×2 |
+> | `ring` | 5 | 0 | Ear**ring** ×3, Tou**ring** (motorcycles!) |
+> 
+> Neither approach is clean on its own, so this is a real choice. The other one is how the catalog gets cached.
+> 
+> ---
+> 
+> ❓ **D20 — How keywords match products** (affects R1, AC3.1, AC3.2 and the README retrieval section)
+> - **(a) Part-of-word matching, ranked by where the hit is.** A keyword matches anywhere inside a word. Each product gets a score: title ×3, tags or brand ×2, description ×1. A product matches if it hits any keyword. The category the LLM picks narrows the set first, so "ring" with `womens-jewellery` never reaches motorcycles.
+> - **(b) Whole words, plus plurals.** More precise, but "phone" misses iPhone and "bag" misses Handbag. The LLM would have to guess exact catalog words.
+> - **(c) A product must contain every keyword.** Fails whenever the LLM adds a synonym: "phone cheap" returns 0.
+> 
+> ➡️ **I recommend (a).** It finds the most products, ranking keeps the good ones on top, and the category does the narrowing. Unit tests will pin the iPhone/Handbag/Touring cases.
+> 
+> ---
+> 
+> ❓ **D21 — Catalog cache and bad data** (affects AC3.8, catalog unreachable)
+> - **(a) A small pure function decides whether the cache is fresh, stale or empty, and the adapter only fetches.**
+>   - The adapter loads `limit=0` and keeps it 10 minutes. Simultaneous requests share one fetch.
+>   - If DummyJSON is down, it keeps serving the old copy. With no copy at all it raises `CatalogUnavailable`.
+>   - Each product is checked with zod, and invalid products are skipped, not fatal.
+> - **(b) Nest's `@nestjs/cache-manager`.** Adds a dependency, and it can't serve the old copy when the fetch fails without extra code.
+> - **(c) Load once at startup, never refresh.** Simplest, but the API won't boot if DummyJSON is down.
+> 
+> ➡️ **I recommend (a).** It follows the pure-functions rule, all of it is testable without network, and it covers AC3.8 exactly.
+> 
+> ---
+> 
+> **Facts I'll go with unless you object:**
+> - **Price filters use the `price` field.** That's the price shown on the card, and the struck-through "original" price is computed upward from it, as in the prototype.
+> - **`GET /api/products?limit=10` for the shop page stays in S7**, as planned.
+
+### 2026-11-17T12:46:51.468Z : /developer — user
+
+> agree to recomendations
