@@ -149,3 +149,19 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Defaults stated in architecture.md:** zod for all validation (shared with AI SDK tools, one library instead of class-validator + zod); single `POST /api/chat` creates the Conversation on first message (client-generated UUID); "Show more" sends a chat message (persisted like any turn); details popup reads `GET /api/products/:id` from the cached catalog.
 **Artifacts:** `docs/architecture.md`, `packages/contracts/src/index.ts`, `docs/adr/0001…0003`, PROTOCOL §4, interview-prep, readme-notes.
 **Next step:** `/developer S0 scaffold + tooling from docs/architecture.md`
+
+## 2026-11-17 15:15 : /architect — UI/UX gap (round 4)
+
+**User input:**
+> what about UI/UX prototype ?!
+
+**Options offered:**
+- D9 Design step: (a) bring back a small `/designer` skill — 2 clickable HTML prototypes with fake data covering key scenarios, user picks/mixes, writes `docs/design.md`; chain `/architect → /designer → /developer` (rec.) / (b) one-off prototype, no skill / (c) skip, decide while coding.
+- D10 Location: (a) committed under `prototypes/` (rec.) / (b) claude.ai Artifact / (c) both.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D9 (a) · D10 (a). Reverses the setup decision "no designer" (Q2) — the UI carries product decisions (Assumption display, off-catalog, multi-intent groups, error/retry) that deserve visible options.
+**Artifacts:** `.claude/skills/designer/SKILL.md`; PROTOCOL chain; `/architect` hand-off → `/designer`; `/developer` reads `docs/design.md` for web slices.
+**Next step:** `/designer build 2 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md`

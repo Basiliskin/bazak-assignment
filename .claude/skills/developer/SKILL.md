@@ -11,7 +11,7 @@ Follow `.claude/skills/_shared/PROTOCOL.md` throughout.
 Deliver one slice, green and committed, without scope creep.
 
 ## Steps
-1. Read the slice in `docs/architecture.md`, its acceptance criteria in `docs/requirements.md`, and SESSION-LOG. If no slice is given, pick the next unfinished one and say so.
+1. Read the slice in `docs/architecture.md`, its acceptance criteria in `docs/requirements.md`, `docs/design.md` (for web slices), and SESSION-LOG. If no slice is given, pick the next unfinished one and say so.
 2. Propose **2–3 implementation options** for the slice's real choices only (e.g. tool-loop written by hand vs. SDK helper; `EventSource` vs. `fetch` reader; TanStack Query vs. custom hook; prompt in code vs. prompt file). Recommend one. **Wait** for the user.
 3. Implement **test-first** where logic exists: failing test → code → green.
    - Backend logic tested with fake `LlmPort` / `CatalogPort` — no network in unit/e2e tests.

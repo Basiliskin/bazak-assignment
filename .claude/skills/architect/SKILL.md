@@ -32,5 +32,5 @@ Produce `docs/architecture.md`, the shared contracts (types for messages, stream
 - ADRs for framework choice, retrieval approach and persistence (if they meet the ADR bar). Interview-prep + readme-notes entries. Log, commit docs.
 
 ## Hand off
-➡️ Next step: `/developer`
-Suggested prompt: `/developer S0 scaffold + tooling from docs/architecture.md`
+➡️ Next step: `/designer`
+Suggested prompt: `/designer build 2 clickable prototypes for the chat, Product Groups and conversation sidebar per docs/requirements.md and docs/architecture.md`

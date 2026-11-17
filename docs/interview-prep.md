@@ -27,3 +27,4 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - Why persist your own Message shape instead of the SDK's UIMessage? → architecture.md D4
 - What does "functional core, imperative shell" mean in your code? Show a pure function and its test. → PROTOCOL §4, `catalog/domain/filter-products.ts`
 - Your e2e uses a mock model — what can't it catch? → architecture.md Testing
+- You first skipped a design step, then added one — why? → SESSION-LOG /architect round 4

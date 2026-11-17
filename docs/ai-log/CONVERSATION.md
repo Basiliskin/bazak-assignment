@@ -364,3 +364,67 @@
 
 > agree to recomendations
 >  - very important all logic should be in pure functions as possible
+
+### 2026-11-17T12:03:10.765Z : /architect — assistant
+
+> The architecture is written and committed in `ca29101`.
+> 
+> **What I added:**
+> - **`docs/architecture.md`** puts every decision in one place. It includes the facts I verified live, a system diagram, the folder layout, a step-by-step diagram of one chat turn, and the two search tools. It also has a table of how each request type is handled, the API endpoints, a table of what happens when storage or a service fails, the test plan, and **7 implementation slices (S0–S6)**, each mapped to its acceptance tests.
+> - **`packages/contracts/src/index.ts`** holds the shared types and validation schemas. The search tool's input is your structured query with a confidence label, and it refuses a `guessed` search without an `assumption`. It also holds the 24 real category ids and the Message / Conversation / ProductGroup types.
+> - **3 decision records** in `docs/adr/`:
+>   - 0001: Vercel AI SDK.
+>   - 0002: structured query plus in-memory filtering, and why there's no vector RAG. It credits the query idea to you.
+>   - 0003: server-side SQLite.
+> - **Pure-functions rule** is now §4 of `PROTOCOL.md`, so `/developer` and `/qa` enforce it. Each module has a `domain/` folder that only calculates (`filterProducts`, `deriveTitle`, `compactHistory`, `toProductGroup`…), while the services only read and write the network, database and AI.
+> - **`docs/interview-prep.md`** got 11 new questions, and `docs/readme-notes.md` got the architecture notes. Your OpenAPI file went into the same commit.
+> 
+> **Things I filled in myself (logged, easy to change):**
+> - **zod for all checking of incoming data.** It's one library instead of two, because the AI SDK tools already use zod.
+> - **A single `POST /api/chat` endpoint** creates the chat on the first message, using an id the browser makes up.
+> - **"Show more"** sends a normal chat message, so it's saved like any other turn.
+> - **The details popup** reads `GET /api/products/:id` from the downloaded catalog.
+> 
+> ➡️ Next step:
+> ```
+> /developer S0 scaffold + tooling from docs/architecture.md
+> ```
+
+### 2026-11-17T12:03:32.138Z : /architect — user
+
+> what about UI/UX prototype ?!
+
+### 2026-11-17T12:03:51.467Z : /architect — assistant
+
+> You're right, there's a gap. In the setup round we dropped `/designer` because "the interface is just a chat plus cards", and `/architect` D7 only fixed the layout in one line. Nobody has *looked* at the screens yet, and several of them carry product decisions:
+> - How the assumption appears for "something cheap and cool": a highlighted chip, or just a sentence?
+> - How "the shop doesn't sell this" looks next to suggested items.
+> - Two card groups in one reply.
+> - An error with a Retry button partway through a reply.
+> - An empty new chat. Does it show example requests?
+> 
+> The page slices (S4–S5) come after the 4 server-side slices (S0–S3), so there's time to do this before it blocks anything.
+> 
+> ---
+> 
+> ❓ **D9 — How to add the design step**
+> - (a) **Bring back a small `/designer` skill.** It builds **2 clickable HTML prototypes** with fake data, for example (A) a sidebar + chat with cards in a grid inside each reply, and (B) a chat with cards in a horizontal scrolling row and a collapsible sidebar. Both show the key moments: fake streaming, vague request, can't-help, two items, error + Retry, details popup, empty state. You pick one or mix, and the result is written to `docs/design.md` for S4–S5 to follow. It slots into the chain as `/architect → /designer → /developer`, takes about 20 minutes, and goes on the log like every other skill. **(Recommended)**
+> - (b) **One prototype right now, no skill**: one variant, quick feedback, done. Faster, but it doesn't follow the "always offer options" rule, and later changes have no repeatable step to go through.
+> - (c) **Skip it.** S4–S5 decide the look while coding. That's the cheapest option, but layout decisions get made inside a coding slice where they're hard to show and defend.
+> 
+> ➡️ (a). The assignment says they care about "a coherent product discovery experience inside chat". Two prototypes plus a logged choice gives you a concrete answer to "why does it look like this?"
+> 
+> ---
+> 
+> ❓ **D10 — Where the prototypes live**
+> - (a) **Committed in the repo** under `prototypes/` as plain HTML files you open in a browser. Reviewers see them as part of the process. **(Recommended)**
+> - (b) **Published as a private claude.ai page** (an Artifact). Easier to click around and share by link, but it lives outside the repo.
+> - (c) **Both.**
+> 
+> ➡️ (a). It's another visible step in a public repo that shows your process, with no outside dependency.
+> 
+> Once you answer, I'll write the `/designer` skill, update the chain in `PROTOCOL.md` and `/architect`'s hand-off, and log it. Then you run `/designer`.
+
+### 2026-11-17T12:04:03.688Z : /architect — user
+
+> agree to recomendations

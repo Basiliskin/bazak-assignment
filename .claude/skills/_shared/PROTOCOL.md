@@ -1,4 +1,4 @@
-# Skill Protocol (shared by product, architect, developer, qa, readme)
+# Skill Protocol (shared by product, architect, designer, developer, qa, readme)
 
 Every skill in this repo follows these rules. Read this file before acting.
 
@@ -70,5 +70,5 @@ End every run with:
 Prompt to paste:
 /<next-skill> <ready-to-run prompt with concrete context>
 ```
-Chain: `/product` → `/architect` → `/developer <slice>` (repeat per slice) → `/qa` → `/readme` → `/interview`.
+Chain: `/product` → `/architect` → `/designer` → `/developer <slice>` (repeat per slice) → `/qa` → `/readme` → `/interview`.
 Log the suggested next step in SESSION-LOG too.
