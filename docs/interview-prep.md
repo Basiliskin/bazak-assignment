@@ -14,3 +14,16 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - Is "a car" off-catalog? How does the Assistant know what the shop sells? → R3
 - Why one card group per intent rather than a merged list? → R4
 - Why first-message titles and not LLM titles? Why no auth? → SESSION-LOG /product round 2
+
+## /architect
+- Why Vercel AI SDK and not from-scratch / LangChain / Mastra / CopilotKit? → ADR 0001
+- Don't you need RAG? Why no embeddings? → ADR 0002 (allowed models, 194 items, LLM does the semantic mapping)
+- Why is confidence a label and not a score? → ADR 0002
+- Why load the entire catalog into memory? What changes at 1M products? → ADR 0002 Consequences
+- How do you guarantee "under $500" and "no invented products" if the LLM is in charge? → architecture.md "Query-type behaviour" (code-enforced, cards only from tool outputs)
+- The model sent `guessed` without an assumption — what happens? → schema refine + SDK retry
+- Why server-side SQLite and not localStorage? What happens if the user clears storage? → ADR 0003, failure-mode table
+- Why does the client send only the last message? → ADR 0003 (tamper-proof history)
+- Why persist your own Message shape instead of the SDK's UIMessage? → architecture.md D4
+- What does "functional core, imperative shell" mean in your code? Show a pure function and its test. → PROTOCOL §4, `catalog/domain/filter-products.ts`
+- Your e2e uses a mock model — what can't it catch? → architecture.md Testing

@@ -11,3 +11,14 @@
 
 ## With more time
 - LLM-generated Conversation Titles, rename/delete, stop-generation button.
+
+## /architect
+- Framework: Vercel AI SDK v7; rejected from-scratch (≈1h plumbing), LangChain/Mastra (competing server/abstractions), assistant-ui/CopilotKit (own UI + runtime, hide what we must explain). ADR 0001.
+- Retrieval: LLM translates request → structured query via tool input (category enum, keywords, price range, sort, confidence label + assumption); full catalog (`limit=0`) filtered in memory by pure functions. ADR 0002.
+- No vector RAG: only gpt-6-luna allowed and it can't embed; 194 items → LLM maps to 24 categories. With more time / bigger catalog: embeddings + search engine behind CatalogPort.
+- DummyJSON quirks found: substring search ("cheap"→0, "smartphone phone"→0, "phone" returns accessories), no price filter, sort/select only documented on /products.
+- gpt-6-luna quirk: function tools rejected on /chat/completions → Responses API.
+- Persistence: server SQLite (`node:sqlite`); clearing browser storage loses nothing; corrupt rows skipped; client sends only the new message. ADR 0003.
+- Code style: functional core (pure functions, mock-free unit tests), imperative shell (Nest services/adapters do I/O).
+- Assumption: no auth → one shared Conversation list per server.
+- With more time: Playwright E2E, LLM-judge evals, structured-output pipeline fallback if the model skips `assumption`.

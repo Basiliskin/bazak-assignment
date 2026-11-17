@@ -80,3 +80,72 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D4 (a) · D5 (a) · D6 as listed · default accepted.
 **Artifacts:** `GLOSSARY.md`, `docs/requirements.md`, `docs/interview-prep.md`, `docs/readme-notes.md`.
 **Next step:** `/architect choose the agent framework, retrieval strategy, streaming transport and persistence for docs/requirements.md and plan the slices`
+
+## 2026-11-17 14:20 : /architect — framework & retrieval (round 1)
+
+**User input:**
+> choose the agent framework, retrieval strategy, streaming transport and persistence for docs/requirements.md and plan the slices
+
+**Facts checked (live, key hidden):**
+- DummyJSON: 194 products; `search?q=` substring match on title/description — "phone" also returns 7 accessories; multi-word "smartphone phone" → 0; no price filter (`maxPrice` ignored); `sortBy/order` work on search/category live but the OpenAPI spec documents them only on `/products`; spec documents `limit=0` = all products.
+- gpt-6-luna: `/chat/completions` + function tools → 400 (needs reasoning_effort none); `/responses` + tools works and emitted 2 parallel calls for a multi-intent query, but invented category "electronics" and query "smartphone phone"; streaming works (~26 text deltas); JSON-schema output works; Decisions API exists but needs undocumented fields (3 failed attempts).
+- Vercel AI SDK v7 (`ai` + `@ai-sdk/openai`) + gpt-6-luna: tool loop + 2 parallel calls + streaming OK in 3.5 s.
+
+**Options offered:**
+- D1 Framework: (a) Vercel AI SDK (rec.) / (b) from scratch `openai` SDK / (c) LangChain/Mastra / (d) assistant-ui/CopilotKit.
+- D2 LLM→retrieval: (a) tool calling loop (rec.) / (b) fixed pipeline structured-output → query → streamed reply / (c) Decisions API classifier.
+- D3 Catalog access: (a) load full catalog once (`limit=0`), filter in memory (rec.) / (b) DummyJSON call per search / (c) hybrid.
+
+**User input:**
+> I'm sorry I didnt attached the @docs/dummyjson_products_openapi.yaml - please check it - it may change your desicions
+
+**Result:** spec reviewed; recommendations unchanged, D3 (a) strengthened (limit=0 documented; sort/select undocumented on search/category).
+
+**User input:**
+> D1 - agree
+> D2 and D3 - dont we need some sort of rag ? why not to "translate" with LLM the user request with confidensial score - to query which will be used on products catalog ?
+
+**Decision:** D1 (a) Vercel AI SDK. D2/D3 reopened with the user's proposal (see round 1b).
+**Facts checked:** `/embeddings` with `gpt-6-luna` → 403; `text-embedding-3-small` → 200 on this key but is **not** in the assignment's allowed-models list. Compact catalog (id|title|category|brand|price|rating) ≈ 2.8k tokens.
+
+## 2026-11-17 14:35 : /architect — retrieval revised (round 1b)
+
+**Options offered:**
+- D2 (revised, incorporating user's "LLM translates to query + confidence"): (a) tool calling where tool args are the structured query `{category enum|null, keywords, minPrice, maxPrice, sortBy, label, confidence: clear|guessed, assumption?}` + `report_off_catalog` tool, one LLM call (rec.) / (b) separate structured-output step → run queries → second streamed call / (c) whole catalog (~2.8k tokens) in prompt, LLM picks ids.
+- Confidence as a label (clear|guessed) instead of a numeric score — LLM self-reported numbers are not calibrated.
+- D3: (a) in-memory filtering of full catalog (rec.) / (b) + vector search via text-embedding-3-small (not an allowed model) / (c) DummyJSON per search.
+- Vector RAG → README "with a bigger catalog / if allowed".
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D2 (a) · D3 (a). Fallback if live eval shows the model skipping `assumption`: switch to D2 (b).
+
+## 2026-11-17 14:50 : /architect — stream, persistence, structure (round 2)
+
+**Options offered:**
+- D4 Stream & message shape: (a) AI SDK UI message stream (SSE) + `useChat`; persist our own `{role, text, productGroups[], createdAt}` and map at the edges; cards rendered from tool results only (rec.) / (b) persist SDK UIMessage as-is / (c) custom event protocol + own hook.
+- D5 Persistence: (a) server SQLite via built-in `node:sqlite`, client sends only the new message, active conversation in URL `/c/:id` (rec.) / (b) localStorage, full history from client / (c) IndexedDB. Failure-mode table shown (cleared / full / corrupted / tampering).
+- Default: LLM gets the last 20 Messages, older tool results compacted to ids + titles.
+- D6 Structure: (a) npm-workspaces monorepo `apps/api`, `apps/web`, `packages/contracts`; Nest modules `catalog`, `conversations`, `assistant` with `CatalogPort`, `ConversationRepository`, `LlmPort`; domain free of Nest/AI SDK/DummyJSON (rec.) / (b) flat Nest, no ports / (c) two folders, duplicated types.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D4 (a) · D5 (a) · D6 (a) · history default accepted.
+
+## 2026-11-17 15:05 : /architect — frontend & tests (round 3)
+
+**Options offered:**
+- D7 Frontend: (a) `useChat` + TanStack Query + Tailwind, containers vs presentational (rec.) / (b) custom hooks + CSS Modules / (c) (a) + shadcn/ui.
+- D8 Tests: (a) unit + API e2e with AI SDK `MockLanguageModel` + one component test + live eval script with coded rule checks (rec.) / (b) (a) + Playwright / (c) (a) + LLM judge.
+- Defaults: Jest (api), Vitest (web); eval not part of `npm test`.
+
+**User input:**
+> agree to recomendations
+>  - very important all logic should be in pure functions as possible
+
+**Decision:** D7 (a) · D8 (a) · defaults accepted · new project rule: **functional core, imperative shell** — all logic in pure functions, added to PROTOCOL §4.
+**Defaults stated in architecture.md:** zod for all validation (shared with AI SDK tools, one library instead of class-validator + zod); single `POST /api/chat` creates the Conversation on first message (client-generated UUID); "Show more" sends a chat message (persisted like any turn); details popup reads `GET /api/products/:id` from the cached catalog.
+**Artifacts:** `docs/architecture.md`, `packages/contracts/src/index.ts`, `docs/adr/0001…0003`, PROTOCOL §4, interview-prep, readme-notes.
+**Next step:** `/developer S0 scaffold + tooling from docs/architecture.md`
