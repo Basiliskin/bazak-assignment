@@ -1126,3 +1126,35 @@
 
 > D29 - i think components should be "light" and "dumb" as possible
 >  - rest agree to recomendations
+
+### 2026-11-17T13:30:14.510Z : /developer — assistant
+
+> S5 is committed as `7cc8f05`. One problem showed up in the live check: "Show more" repeated a product. It's in the S3 assistant code, so I logged it and left it unfixed until you choose a fix (below).
+> 
+> **What's in S5**
+> - **Product cards:** image (shows a 📦 "No image" placeholder if it fails to load), a discount badge from 5% off, title, description cut to 2 lines, price and ★ rating.
+> - **Product groups:** label, "1–4 of N", the 💡 Assumption chip on guessed searches, "N more match", and a Show more button that is disabled while a reply is streaming. Grid layout is used now; the carousel layout is built and waiting for the widget in S7.
+> - **Details popup:** built on the browser's native `<dialog>` (D28). It closes with ✕, Esc or a backdrop click, and focus goes back to the card. It has loading and error states and becomes a bottom sheet on phones.
+> - **Light, dumb components (your D29 call):** the product components only take props and call callbacks. All display rules ("N more", the range text, discount, original price, stock label) are pure functions in `apps/web/src/lib/product-view.ts`. `ChatView` and `ProductDetailsContainer` own the state and the fetching. The only local state left is "this image failed to load".
+> - **Details contract (D30):** `ProductDetailsSchema` is now in contracts. The web app validates `GET /api/products/:id` with it, and the API uses the same schema to read DummyJSON.
+> 
+> **Checks**
+> - Lint, typecheck and Prettier are clean. Tests: api 97/97, web 50/50 (24 new).
+> - In Chrome: the grid and dialog look right, Esc closes the dialog and focus returns, no console errors. Show more brought back the second page ("5–8 of 12").
+> 
+> **The Show more problem**
+> On that second page, Oppo A57 appeared again. Page 1 was searched sorted by price, low to high. For page 2 the model searched again sorted by relevance, so the pages don't line up. The model can't keep the sort because the history note it gets (D25) only has the label, the count and the products shown, not the search itself.
+> 
+> ❓ **D31 — Make "Show more" page reliably**
+> (a) **Server reuses the earlier search (Recommended).** When the model asks for the next page of a group label it already showed, a small pure function copies that group's stored search and changes only the page offset. Deterministic, about 20 lines plus unit tests, no contract change. Risk: if the model reuses the same label for a genuinely different search, the old search wins.
+> (b) **Put the search in the history note**, e.g. `sort: price-asc, max $500`, and tell the model to copy it. Smallest change, but it still relies on the model getting it right.
+> (c) **Skip the model for Show more.** The button calls a paging endpoint and the result is saved as a turn. Fully deterministic and no model call (about 5 s faster), but it needs a new endpoint, a new message path and new UI streaming. Roughly 45 minutes.
+> 
+> ➡️ I'd do (a), and also the one-line (b) so the model's reply text matches the page. (c) costs too much for a 3-hour budget.
+> 
+> ➡️ Next step: answer D31. Or carry on and leave it for `/qa`:
+> `/developer S6 Eval suite from docs/architecture.md`
+
+### 2026-11-17T13:33:04.096Z : /developer — user
+
+> do (a), and also the one-line (b) so the model's reply text matches the page.

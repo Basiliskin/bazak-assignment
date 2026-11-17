@@ -20,7 +20,9 @@ describe('compactHistory', () => {
       { role: 'assistant', text: 'Here are some phones.' },
       {
         role: 'note',
-        text: 'Shown in the reply above — "Phones under $500" (1 of 7 matches): #1 iPhone 9 $499',
+        text:
+          'Shown in the reply above — "Phones under $500" (1 of 7 matches; search: category smartphones, ' +
+          'price ≤ $500, sort relevance): #1 iPhone 9 $499',
       },
     ]);
   });
@@ -34,7 +36,25 @@ describe('compactHistory', () => {
     const g = group({ query: { ...group().query, offset: 4 } });
     expect(
       compactHistory([message({ id: 'a', role: 'assistant', text: 'More.', productGroups: [g] })])[1]?.text,
-    ).toContain('(5–5 of 7 matches)');
+    ).toContain('(5–5 of 7 matches;');
+  });
+
+  it('names the search behind each group, so "show more" and follow-ups can repeat it (D31)', () => {
+    const g = group({
+      query: {
+        ...group().query,
+        category: null,
+        keywords: ['red', 'lipstick'],
+        minPrice: 5,
+        maxPrice: null,
+        sortBy: 'price-asc',
+        confidence: 'guessed',
+        assumption: 'a classic red',
+      },
+    });
+    expect(
+      compactHistory([message({ id: 'a', role: 'assistant', text: 'Here.', productGroups: [g] })])[1]?.text,
+    ).toContain('search: all categories, keywords red lipstick, price ≥ $5, sort price-asc');
   });
 
   it('notes off-catalog reports', () => {

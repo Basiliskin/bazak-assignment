@@ -9,6 +9,7 @@ import type { CatalogService } from '../../catalog/application/catalog.service.j
 import type { ConversationRepository } from '../../conversations/application/conversation.repository.js';
 import { appendMessage, createConversation } from '../../conversations/domain/conversation.js';
 import { compactHistory } from '../domain/compact-history.js';
+import { resolvePagedQuery } from '../domain/resolve-paged-query.js';
 import { buildSystemPrompt } from '../domain/system-prompt.js';
 import { toAssistantMessage } from '../domain/to-assistant-message.js';
 import { toProductGroup } from '../domain/to-product-group.js';
@@ -22,14 +23,18 @@ export interface TurnEnvironment {
 
 const SYSTEM_PROMPT = buildSystemPrompt(CATEGORY_SLUGS);
 
-/** Collects tool results of one turn. Groups keep tool-call order even when parallel calls finish out of order. */
-function createTurnTools(catalog: CatalogService) {
+/**
+ * Collects tool results of one turn. Groups keep tool-call order even when parallel calls finish out of order.
+ * A "Show more" page reuses the earlier group's search (D31), so paging doesn't depend on the model.
+ */
+function createTurnTools(catalog: CatalogService, earlier: readonly Message[]) {
   const groups: (ProductGroup | null)[] = [];
   const offCatalog: ReportOffCatalogInput[] = [];
   const tools: TurnTools = {
     async searchProducts(query) {
       const slot = groups.push(null) - 1;
-      const group = toProductGroup(query, await catalog.search(query));
+      const resolved = resolvePagedQuery(query, earlier);
+      const group = toProductGroup(resolved, await catalog.search(resolved));
       groups[slot] = group;
       return group;
     },
@@ -71,7 +76,7 @@ export class ChatTurnService {
     );
     await this.conversations.save(conversation);
 
-    const turn = createTurnTools(this.catalog);
+    const turn = createTurnTools(this.catalog, conversation.messages);
     return this.llm.streamTurn({
       system: SYSTEM_PROMPT,
       history: compactHistory(conversation.messages),

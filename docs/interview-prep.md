@@ -77,3 +77,5 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - How "dumb" are the product components, and where does the logic live? → D29; pure `lib/product-view.ts` (range, "N more", discount, stock) + containers `ChatView` / `ProductDetailsContainer`; components take props and call callbacks
 - Why parse the details response with zod when the API is ours? → D30; `ProductDetailsSchema` in contracts, the one schema also parses DummyJSON in `parse-catalog.ts`
 - How does "Show more" work, and what can go wrong? → it sends `Show more: <label>` to the Assistant; found live: the model changed `sortBy` on page 2 → a repeated Product (see SESSION-LOG S5)
+- How do you stop "Show more" from repeating or skipping Products? → D31; `apps/api/src/assistant/domain/resolve-paged-query.ts` (code keeps the stored query, model only supplies the offset) + search described in history notes (`compact-history.ts`)
+- What if the model reuses a label for a genuinely different search? → only pages with offset > 0 are resolved; a first-page search with the same label keeps the model's filters (spec case)

@@ -10,8 +10,20 @@ const range = (g: ProductGroup): string => {
   return `${shown} of ${g.total} ${g.total === 1 ? 'match' : 'matches'}`;
 };
 
+/** "category smartphones, price ≤ $500, sort price-asc" — lets the model repeat the exact search (D31). */
+const describeSearch = ({ query: q }: ProductGroup): string =>
+  [
+    q.category ? `category ${q.category}` : 'all categories',
+    q.keywords.length ? `keywords ${q.keywords.join(' ')}` : null,
+    q.minPrice !== null ? `price ≥ $${q.minPrice}` : null,
+    q.maxPrice !== null ? `price ≤ $${q.maxPrice}` : null,
+    `sort ${q.sortBy}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
 const groupNote = (g: ProductGroup): string =>
-  `Shown in the reply above — "${g.label}" (${range(g)}): ${
+  `Shown in the reply above — "${g.label}" (${range(g)}; search: ${describeSearch(g)}): ${
     g.products.map((p) => `#${p.id} ${p.title} $${p.price}`).join(', ') || 'none'
   }`;
 

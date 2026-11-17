@@ -134,6 +134,29 @@ describe('ChatTurnService', () => {
     expect((await repo.get(CONV))?.title).toBe('a phone');
   });
 
+  it('"Show more" pages the stored search even if the model changes other arguments (D31)', async () => {
+    const shown = group({ query: query({ sortBy: 'price-asc', maxPrice: 600 }) });
+    const existing = appendMessage(
+      createConversation(CONV, 'a phone', '2026-11-17T09:00:00.000Z'),
+      message({ id: 'a0', role: 'assistant', text: 'Phones:', productGroups: [shown] }),
+    );
+    const { service, repo } = setup(
+      async (tools) => {
+        await tools.searchProducts(query({ sortBy: 'relevance', maxPrice: null, offset: 4 }));
+        return 'More phones.';
+      },
+      new MemoryRepo(new Map([[CONV, existing]])),
+    );
+    await drain(
+      await service.run({
+        conversationId: CONV,
+        message: { id: 'u1', text: 'Show more: Phones under $500' },
+      }),
+    );
+    const reply = (await repo.get(CONV))?.messages.at(-1);
+    expect(reply?.productGroups[0]?.query).toEqual({ ...shown.query, offset: 4 });
+  });
+
   it('a retried user Message (same id) is not stored twice', async () => {
     const { service, repo } = setup(async () => 'ok');
     await drain(await service.run({ conversationId: CONV, message: { id: 'u1', text: 'hi' } }));

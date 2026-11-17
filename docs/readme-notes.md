@@ -62,3 +62,4 @@
 - Details popup: native `<dialog>` (Esc, focus trap, backdrop click), bottom sheet on phones; fetched from `GET /api/products/:id` and validated with the shared `ProductDetailsSchema`.
 - Presentational components hold no logic: display rules are pure functions in `lib/product-view.ts`; containers own state and fetching.
 - Trade-off: "Show more" goes through the LLM (one model call, ~5 s, persisted like any turn) instead of a direct paging endpoint.
+- Found live: on "Show more" the model changed the sort order, so a Product repeated. Fix: paging reuses the stored search in code (only the offset comes from the model), and history notes now name the search so the reply text matches.

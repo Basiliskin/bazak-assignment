@@ -345,3 +345,14 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Built:** contracts `ProductDetailsSchema` (API `parse-catalog.ts` reuses it) · web `lib/product-view.ts` · `components/` `ProductImage`, `ProductCard` (+`Rating`), `ProductGroup` (grid | carousel, `AssumptionChip`, empty group, Show more), `Modal`, `ProductDetailsDialog` (loading / error + Try again / ready) · `products/ProductDetailsContainer.tsx` · `api.getProduct` + `useProduct` · `ChatView`/`MessageBubble` wired; S4 `ProductGroupPreview` removed · `.no-scrollbar` CSS · `showModal` stub in `test-setup.ts`.
 **Verified:** lint clean, typecheck ok, Prettier clean, tests api 97/97, web 50/50 (16 helper tests; `MessageBubble.spec.tsx` with 2 groups: labels, ranges, images, prices, rating, badge, Assumption chip, image fallback, callbacks, Show more disabled while busy; `ChatView.spec.tsx`: card → details (brand, "Only 3 left", original price, gallery switch) → Esc closes + focus back on card; ✕ and backdrop close; Show more POSTs `Show more: Phones under $500`). Live in Chrome: grid with badges, dialog opens / Esc closes / focus returns, no console errors.
 **Live finding (not fixed in S5):** Show more returned "5–8 of 12" but repeated Oppo A57: page 1 ran with `sortBy: price-asc`, the model re-ran page 2 with `sortBy: relevance` — the history note (D25) carries label/count/Products but not the query, so the model can't copy the sort. Offered as a follow-up decision.
+
+## 2026-11-17 17:55 : /developer S5 — Show more paging fix
+
+**User input:**
+> do (a), and also the one-line (b) so the model's reply text matches the page.
+
+**Options offered:** D31 (a) server reuses the shown group's stored search, only the offset changes (rec.) / (b) put the search into the history note + prompt line / (c) deterministic paging endpoint without the model.
+**Decision:** D31 (a) + (b).
+**Built:** `assistant/domain/resolve-paged-query.ts` (pure; offset > 0 + matching label, case/space-insensitive, latest group wins) wired into `createTurnTools`; `compactHistory` notes add `search: category …, keywords …, price ≤/≥ …, sort …`; system prompt: "repeat that group's search exactly (same label, filters and sortBy from its note)".
+**Verified:** lint clean, typecheck ok, tests api 104/104 (5 resolver cases, service test where the model changes sortBy/maxPrice on page 2, history note test), web 50/50. Live (gpt-6-luna): "phones under $500, cheapest first" → `price-asc` 1–4; "Show more: Phones under $500" → `price-asc`, offset 4, max 500, next four at $299.99 — no repeat.
+**Next step:** `/developer S6 Eval suite from docs/architecture.md`
