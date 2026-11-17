@@ -805,3 +805,79 @@
 ### 2026-11-17T12:46:51.468Z : /developer — user
 
 > agree to recomendations
+
+### 2026-11-17T12:50:56.912Z : /developer — assistant
+
+> S1 is done and committed as `e5e9e70`. It was built test-first: the specs failed before the code existed. Lint is clean, typecheck passes, and tests pass (API 47/47, web 2/2).
+> 
+> **What's built, in `apps/api/src/catalog/`:**
+> - **Search logic (`domain/`, pure functions, no I/O):**
+>   - `filterProducts` drops out-of-stock products (R9), then applies category, any-keyword part-of-word matching (D20), the inclusive price range (R6), sorting, and pages of 4 with a total (R7).
+>   - Keyword hits are weighted: title 3, tags 2, brand 2, description 1. Plural keywords count as singular, so "lipsticks" finds "lipstick".
+>   - Also here: `toProductCard`, `cacheStatus` (fresh, stale or empty) and the domain errors.
+> - **`application/`:** `CatalogPort` and `CatalogService`, with no Nest imports. The module wires them up.
+> - **DummyJSON adapter (`infrastructure/`):**
+>   - zod checks each product, and bad ones are skipped rather than breaking the whole catalog.
+>   - The catalog is cached for 10 minutes, and simultaneous requests share one fetch.
+>   - If DummyJSON is down it serves the old copy. With no copy at all it returns `CatalogUnavailable` (AC3.8).
+> - **`presentation/`:** `GET /api/products/:id`.
+> - **`shared/presentation/`:** a single error filter. Every error comes back as `{ error: { code, message } }`, and unexpected errors never expose their message.
+> - **Tests:** `test/support/create-test-app.ts` runs the real app with fake catalog and config, so tests use no network.
+> 
+> **Checked against the live catalog:**
+> 
+> | Query | Result |
+> |---|---|
+> | smartphones | 15 (out-of-stock Galaxy S8 hidden) |
+> | phone ≤ $500 | top is $499.99, nothing above $500 |
+> | "bag" | finds both Handbags |
+> | "flight" | 0 results, no error |
+> | `/products/9999` · `/abc` | 404 · 400, both in the standard error shape |
+> 
+> **One known limitation, noted for the README:** there's no synonym matching. "cellphone" only finds phones if the LLM also picks the smartphones category.
+> 
+> ➡️ Next step:
+> ```
+> /developer S2 Conversations from docs/architecture.md
+> ```
+
+### 2026-11-17T12:52:20.543Z : /developer — user
+
+> /developer S2 Conversations from docs/architecture.md
+
+### 2026-11-17T12:52:41.388Z : /developer — assistant
+
+> Two real choices in S2. Everything else follows from the architecture: the domain functions, the zod check when reading rows, and the list/get/delete endpoints.
+> 
+> ---
+> 
+> ❓ **D22 — How the repository saves a Conversation**
+> - **(a) `save(conversation)` writes the whole Conversation object in one transaction.**
+>   - The conversation row is created or updated; messages are inserted by id, and ids already in the table are skipped.
+>   - The domain stays pure: `appendMessage(conv, msg)` returns a new Conversation, and the service calls `save`.
+>   - Each message is still its own row, so one damaged row can't take out the rest.
+> - **(b) Separate SQL-shaped methods**: `insertMessage(convId, msg)`, `touch(convId, updatedAt)`, `createConversation(...)`. Slightly fewer writes, but the service has to coordinate them, so persistence details leak into the application layer.
+> - **(c) The whole Conversation as one JSON blob per row.** Simplest, but one bad write corrupts the entire chat, and that breaks the architecture's "skip the damaged row, load the rest" rule (AC5.2).
+> 
+> ➡️ **I recommend (a).** It's the standard DDD way to save one Conversation object, and it meets AC5.2 as written.
+> 
+> ---
+> 
+> ❓ **D23 — Where the `Message` zod schema lives** (needed to check stored rows on read)
+> - **(a) In `packages/contracts`, as `ProductCardSchema`, `ProductGroupSchema` and `MessageSchema`, with the types derived from them.** One source for both the runtime check and the type; the web app can reuse it in S4 to check API responses.
+> - **(b) Only in the API's storage code**, mirroring the existing interfaces with a compile-time check. Keeps contracts lighter, but every field is defined in two places.
+> 
+> ➡️ **I recommend (a).** It follows the DRY rule, and the interfaces in contracts become derived types with the same shape, so nothing downstream changes.
+> 
+> ---
+> 
+> **Defaults I'll use unless you object:**
+> - Tables are created with `CREATE TABLE IF NOT EXISTS` at startup, with no migration tool.
+> - The title is the first message cut to 40 characters at a word boundary, ending in "…".
+> - `DELETE` is included: it's a Could, and about 5 lines.
+> - Unknown ids get a 404 with `CONVERSATION_NOT_FOUND`.
+> - If the DB file can't be opened at startup, the app stops with a clear message.
+
+### 2026-11-17T12:53:44.589Z : /developer — user
+
+> agree to recomendations

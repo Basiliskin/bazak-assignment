@@ -37,16 +37,17 @@ export type CategorySlug = z.infer<typeof CategorySlugSchema>;
 export const SORT_OPTIONS = ['relevance', 'price-asc', 'price-desc', 'rating-desc', 'discount-desc'] as const;
 
 /** Product Card: what one Product looks like inside an Assistant Message. */
-export interface ProductCard {
-  id: number;
-  title: string;
-  description: string;
-  price: number;
-  discountPercentage: number;
-  rating: number;
-  thumbnail: string;
-  category: CategorySlug;
-}
+export const ProductCardSchema = z.object({
+  id: z.number().int(),
+  title: z.string(),
+  description: z.string(),
+  price: z.number(),
+  discountPercentage: z.number(),
+  rating: z.number(),
+  thumbnail: z.string(),
+  category: CategorySlugSchema,
+});
+export type ProductCard = z.infer<typeof ProductCardSchema>;
 
 /** Full Product for the details popup (GET /api/products/:id). */
 export interface ProductDetails extends ProductCard {
@@ -83,12 +84,13 @@ export const SearchProductsInputSchema = z
 export type SearchProductsInput = z.infer<typeof SearchProductsInputSchema>;
 
 /** Product Group: the result of one search_products call = one Search Intent. */
-export interface ProductGroup {
-  label: string;
-  query: SearchProductsInput;
-  products: ProductCard[]; // ≤ 4 (R7)
-  total: number; // total matches; total - offset - products.length = "N more"
-}
+export const ProductGroupSchema = z.object({
+  label: z.string(),
+  query: SearchProductsInputSchema,
+  products: z.array(ProductCardSchema), // ≤ 4 (R7)
+  total: z.number().int().nonnegative(), // total matches; total - offset - products.length = "N more"
+});
+export type ProductGroup = z.infer<typeof ProductGroupSchema>;
 
 export const ReportOffCatalogInputSchema = z.object({
   request: z.string().min(1).describe('What the Shopper asked for that the shop does not sell'),
@@ -102,26 +104,29 @@ export const TOOL_NAMES = {
 
 // ── Conversations ─────────────────────────────────────────────────────────────
 
-export type MessageRole = 'user' | 'assistant';
+export const MessageRoleSchema = z.enum(['user', 'assistant']);
+export type MessageRole = z.infer<typeof MessageRoleSchema>;
 
-export interface Message {
-  id: string;
-  role: MessageRole;
-  text: string;
-  productGroups: ProductGroup[]; // always [] for user Messages
-  offCatalog: ReportOffCatalogInput[];
-  createdAt: string; // ISO
-}
+/** Message as stored and returned by the API (validated on read from storage — AC5.2). */
+export const MessageSchema = z.object({
+  id: z.string().min(1),
+  role: MessageRoleSchema,
+  text: z.string(),
+  productGroups: z.array(ProductGroupSchema), // always [] for user Messages
+  offCatalog: z.array(ReportOffCatalogInputSchema),
+  createdAt: z.iso.datetime(),
+});
+export type Message = z.infer<typeof MessageSchema>;
 
-export interface ConversationSummary {
-  id: string;
-  title: string; // first Shopper message, ~40 chars
-  updatedAt: string;
-}
+export const ConversationSummarySchema = z.object({
+  id: z.string(),
+  title: z.string(), // first Shopper message, ≤ 40 chars
+  updatedAt: z.iso.datetime(),
+});
+export type ConversationSummary = z.infer<typeof ConversationSummarySchema>;
 
-export interface Conversation extends ConversationSummary {
-  messages: Message[];
-}
+export const ConversationSchema = ConversationSummarySchema.extend({ messages: z.array(MessageSchema) });
+export type Conversation = z.infer<typeof ConversationSchema>;
 
 // ── HTTP ─────────────────────────────────────────────────────────────────────
 

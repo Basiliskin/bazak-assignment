@@ -264,3 +264,22 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Built:** `catalog/domain` (`filterProducts` + `scoreProduct`, `toProductCard`, `cacheStatus`, errors) · `catalog/application` (`CatalogPort` abstract class, `CatalogService` — plain class, wired by factory, no Nest import) · `catalog/infrastructure` (`parseCatalogResponse` zod, `DummyJsonCatalog`) · `catalog/presentation` (`GET /api/products/:id`) · `shared/presentation` (`toErrorResponse` pure + `DomainExceptionFilter` → `{error:{code,message}}`, unknown errors hidden) · `test/support/create-test-app.ts` (real app, fake ports).
 **Verified:** lint clean, typecheck ok, tests api 47/47, web 2/2. Live: 194/194 parsed; smartphones 15 (S8 out of stock hidden); phones ≤ $500 max $499.99; "bag" finds Handbags; "flight" → 0; `/api/products/9999` → 404 shape, `/abc` → 400 shape.
 **Next step:** `/developer S2 Conversations from docs/architecture.md`
+
+## 2026-11-17 15:45 : /developer S2 — Conversations
+
+**User input:**
+> /developer S2 Conversations from docs/architecture.md
+
+**Options offered:**
+- D22 Saving: (a) `save(conversation)` whole aggregate, one transaction, insert-or-ignore Messages by id (rec.) / (b) SQL-shaped methods `insertMessage`/`touch` / (c) one JSON blob per Conversation (breaks AC5.2 row skipping).
+- D23 Message schema: (a) zod schemas in `packages/contracts`, types derived (rec.) / (b) schema only in API storage, duplicated fields.
+- Defaults stated: `CREATE TABLE IF NOT EXISTS`, title = first message ≤40 chars at word boundary + "…", DELETE included, 404 `CONVERSATION_NOT_FOUND`, fail fast if DB can't open.
+
+**User input:**
+> agree to recomendations
+
+**Decision:** D22 (a), D23 (a).
+**Built:** contracts `ProductCardSchema`, `ProductGroupSchema`, `MessageSchema`, `ConversationSummarySchema`, `ConversationSchema` (types now `z.infer`) · `conversations/domain` (`deriveTitle`, `createConversation`, `appendMessage` — idempotent per Message id, `toSummary`; `ConversationNotFoundError`) · `application` (`ConversationRepository` port, `ConversationsService`) · `infrastructure` (`rowsToConversation` pure, `SqliteConversationRepository` — takes a `DatabaseSync`, `open()` creates folder + WAL, FK cascade, transaction + rollback) · `presentation` (`GET /api/conversations`, `GET|DELETE /api/conversations/:id`, UUID-validated).
+**Issues hit:** lint `preserve-caught-error` → `{ cause }`; WAL side files not covered by `*.db` → `data/` added to `.gitignore`.
+**Verified:** lint clean, typecheck ok, tests api 70/70, web 2/2; built API started from `/` creates `data/app.db` at the repo root; list `[]`, unknown id → 404 shape.
+**Next step:** `/developer S3 Assistant turn from docs/architecture.md`

@@ -18,6 +18,8 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D18 | Contracts packaging | `packages/contracts` compiled by `tsc` to `dist/` (watched in dev; `predev`/`pretest` build it) |
 | D20 | Keyword matching | Part-of-word, any keyword, weighted (title 3 · tags/brand 2 · description 1); plural keyword → singular; category narrows first |
 | D21 | Catalog cache | Pure `cacheStatus` (empty/fresh/stale) + adapter: 10-min TTL, single-flight fetch, stale copy on error, zod per product (invalid skipped) |
+| D22 | Saving Conversations | Repository `save(conversation)` persists the whole aggregate in one transaction (upsert conversation, insert-or-ignore Messages by id); one row per Message |
+| D23 | Message schema | zod `MessageSchema`/`ProductGroupSchema`/`ProductCardSchema`/`ConversationSchema` in `packages/contracts`; types derived from them |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
@@ -144,7 +146,7 @@ System prompt (`buildSystemPrompt(categories)`, pure): role, the 24 categories, 
 Errors: domain errors (`ConversationNotFound`, `CatalogUnavailable`) → `DomainExceptionFilter` → `{ error: { code, message } }`. Inside a stream, failures are sent as an `error` part, never a dropped connection.
 
 ## Persistence & failure modes
-SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id, title, updated_at)`, `messages(id, conversation_id, role, payload_json, created_at)`. `payload_json` holds our `Message` (text + productGroups), validated with zod on read.
+SQLite file `data/app.db` via built-in `node:sqlite`. Tables: `conversations(id, title, updated_at)`, `messages(seq, id unique, conversation_id → cascade, role, payload_json, created_at)`; WAL mode. `payload_json` holds our `Message` (text + productGroups), validated with zod on read.
 
 | Situation | Behaviour |
 |---|---|
@@ -183,7 +185,7 @@ Not in `npm test`: the live eval (costs money, non-deterministic). Slips through
 |---|---|---|
 | **S0** Scaffold + tooling | npm workspaces; `packages/contracts` (package.json, tsconfig, zod); Nest app with config (zod env), `GET /api/health`; Vite React app with Tailwind + Router; ESLint + Prettier; Vitest (api + web); `npm run dev` runs contracts watch + api (:3001) + web (:5173, proxy `/api`). ✅ done | — |
 | **S1** Catalog | `filterProducts`, `toProductCard` (pure, unit-tested); `CatalogPort`; DummyJSON adapter (`limit=0`, 10-min cache, stale-on-error); `GET /api/products/:id`; `DomainExceptionFilter`. ✅ done | AC3.2 (filter), AC3.7, AC3.8 |
-| **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. | AC5.1–5.2, AC6.1–6.2, AC6.4 |
+| **S2** Conversations | `createConversation`, `appendMessage`, `deriveTitle` (pure); SQLite repository (zod on read, skip corrupt rows); list/get/delete endpoints. ✅ done | AC5.1–5.2, AC6.1–6.2, AC6.4 |
 | **S3** Assistant turn | `buildSystemPrompt`, `compactHistory`, `toProductGroup`, `toAssistantMessage` (pure); AI SDK `LlmPort` with the 2 tools, max 3 steps; `ChatTurnService`; `POST /api/chat` streaming + persistence; e2e with `MockLanguageModel`. | AC2.1, AC3.1–3.6, AC5.4, AC7.1 |
 | **S4** Full-page chat (A) | Routes `/chat/:id`, `PageShell` + `ChatView`, `useShoppingChat`, streaming bubbles, tool status, typing state, input disable, error + Retry, sidebar list (TanStack Query), New chat, switching — per `docs/design.md`. | AC1.x, AC2.x, AC5.1, AC5.3, AC6.1–6.3 |
 | **S5** Product cards | `toProductGroups` (pure), `ProductGroup` (grid \| carousel) / `ProductCard` (image fallback, discount badge, Assumption chip, "N more" + Show more), `OffCatalogNotice`, `ProductDetailsDialog`; component test. | AC4.x, R2–R4 display |

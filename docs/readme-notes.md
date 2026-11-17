@@ -39,3 +39,7 @@
 - Retrieval: whole catalog (194) fetched once (`limit=0`), cached 10 min, refreshed on demand; stale copy served if DummyJSON fails. Filtering, price limits, ranking, paging are pure functions (`filterProducts`).
 - Keyword matching is part-of-word (iPhone, Handbag) with field weights; false hits ("ring" → Touring) are kept out by the category the LLM chooses. Limitation: no synonyms/semantic match ("cellphone" → nothing unless the LLM picks category).
 - Out-of-stock Products never appear in results (R9).
+
+## /developer S2
+- Storage: `data/app.db` (SQLite, WAL) at the repo root, created on first start; delete the file to reset. One row per Message, validated with zod on read — a corrupted row is skipped, the rest of the chat loads.
+- Endpoints: `GET /api/conversations`, `GET|DELETE /api/conversations/:id`.

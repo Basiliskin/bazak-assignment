@@ -50,3 +50,9 @@ Likely "why X and not Y?" questions raised by each decision. Answers live in the
 - What happens when DummyJSON is down? → D21: stale copy; none → `CatalogUnavailable` → 503 / tool error (AC3.8); `dummyjson.catalog.spec.ts`
 - Why is `CatalogPort` an abstract class, not an interface? → it doubles as the Nest DI token without importing Nest into application/
 - How do errors reach the client? → `toErrorResponse` (pure) + `DomainExceptionFilter`; unknown errors never leak messages
+
+## /developer S2
+- What happens if a stored message is corrupted? → `rowsToConversation` skips + counts, repo warns; spec "skips a corrupted Message row" (AC5.2)
+- Why save the whole Conversation instead of `insertMessage`? → D22 aggregate persistence; insert-or-ignore makes retries idempotent; transaction + rollback spec
+- Why is `appendMessage` a no-op for a known Message id? → client retries / regenerate can't duplicate a Message
+- Why `node:sqlite` over a JSON file or an ORM? → ADR 0003; zero deps, transactions, per-row corruption isolation

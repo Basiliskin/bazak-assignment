@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from './catalog/catalog.module.js';
+import { ConversationsModule } from './conversations/conversations.module.js';
 import { ConfigModule } from './shared/config/config.module.js';
 import { HealthController } from './shared/health.controller.js';
 
 @Module({
-  imports: [ConfigModule, CatalogModule],
+  imports: [ConfigModule, CatalogModule, ConversationsModule],
   controllers: [HealthController],
 })
 export class AppModule {}
