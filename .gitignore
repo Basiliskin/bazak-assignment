@@ -10,3 +10,4 @@ coverage/
 *.db
 .claude/skills/interview/SKILL.md
 data/
+.claude/skills/practice/
