@@ -2684,3 +2684,121 @@
 > I committed the fix as `62ec516` on a new branch, `fix/recommendations-exclude-matches`. I didn't commit to `main` directly because my rules say to branch first when on the default branch. If you'd rather keep everything on `main`, run `git switch main && git merge --ff-only fix/recommendations-exclude-matches`.
 > 
 > I left out `docs/ai-log/CONVERSATION.md`: it already had uncommitted changes before this fix, and they aren't mine.
+
+### 2026-11-19T07:34:50.269Z : /practice — assistant
+
+> I ran into a problem at the end. `git switch --discard-changes` also wiped the **uncommitted entries in `docs/ai-log/CONVERSATION.md`**: the file was already modified when we started, and those entries had never been committed. The working tree is now clean, so whatever the hooks had logged since your last commit (`94fb51b`) is gone from that file, this session included. The hooks only add to the end, so the next turns get logged again, but the missing entries won't come back on their own.
+> 
+> It may be recoverable: Claude Code keeps session transcripts under `~/.claude/projects/-Users-dimitrykatz-workspace-Projects-bazak-assignment/`. I can rebuild the missing entries from those if you want. The root cause is the skill's End step. It should stash `CONVERSATION.md` before switching (or use a plain `git switch`, since the practice branch's only commit was the start point). I can fix `SKILL.md` too.
+> 
+> **Session summary**
+> 
+> | Task | Result |
+> |---|---|
+> | T01: request body | ✅ done, 0 hints (off the repeat list) |
+> | T04: history + notes | ✅ done, 0 hints (off the repeat list) |
+> | T05: guessed without assumption | 🔁 repeat (`show me`) |
+> | T06: inclusive `maxPrice` | ✅ done, 0 hints |
+> | T07: no fake cards | 🔁 repeat (`show me`) |
+> 
+> **Repeat list:** T05, T07.
+> **Next session:** T05 and T07 first, then T08 (does a reply still get saved if the Shopper closes the tab mid-stream?).
+> 
+> You're back on `fix/recommendations-exclude-matches` and the practice branch is deleted. Do you want me to rebuild `CONVERSATION.md` from the transcripts and patch the skill?
+
+### 2026-11-19T07:40:51.195Z : /retro — user
+
+> /retro practice skill - the big issue is last "show me" never shown
+
+### 2026-11-19T07:41:44.826Z : /retro — assistant
+
+> # Retro: `/practice` session, 2026-11-19
+> 
+> I reread this session's transcript, `.claude/skills/practice/SKILL.md`, and the log hooks (`.claude/hooks/log-reply.mjs`, `lib/ai-log.mjs`).
+> 
+> ## 1. The last `show me` answer was never shown (your big issue)
+> 
+> **What happened:** on T07's `show me`, I wrote the answer and then ran the End step (notes, `git status`, branch switch, delete) in the same turn. The answer ended up as text *between* tool calls. The turn's final message was the session summary plus the data-loss news, and it didn't include the answer. The log confirms it: `log-reply.mjs:36` saves only `last_assistant_message`, and the T07 answer isn't in `CONVERSATION.md`.
+> 
+> **Root cause:** SKILL.md step 3 ends with "give Why and Interview", and step 5 starts with "after task 5". Nothing marks a turn boundary between them, so I ran them together. T05's `show me` displayed fine only because no tool calls followed it.
+> 
+> **Fix (SKILL.md):** one rule for where user-facing text goes, plus a turn boundary before End:
+> 
+> ```markdown
+> ## Output rule
+> Everything the user must read (task text, a `show me` answer, Why, Interview, the End report) goes in the
+> turn's final message, after all tool calls. Text between tool calls may not reach the user.
+> 
+> 5. **End** (on the user's next reply after task 5's Why and Interview, or on `stop`). …
+> ```
+> 
+> ## 2. `--discard-changes` wiped the uncommitted AI log (data loss)
+> 
+> **What happened:** Start explicitly allows a dirty `docs/ai-log/CONVERSATION.md`. End then runs `git switch --discard-changes`, which threw away every log entry since `94fb51b`. I didn't check the target before running the destructive command.
+> 
+> **Root cause:** the two steps contradict each other. NOTES.md only survived because `.gitignore:13` ignores the skill folder, and nothing in the skill mentions that dependency.
+> 
+> **Fixes:**
+> - **SKILL.md End step:** save the log across the switch.
+>   `git stash push -- docs/ai-log/CONVERSATION.md && git switch --discard-changes <home> && git stash pop`
+> - **Guardrail (deterministic):** a `PreToolUse` Bash hook that blocks `git switch/checkout --discard-changes|-f`, `git reset --hard`, `git restore .` and `git checkout -- .` while `CONVERSATION.md` has uncommitted changes. That makes the mistake impossible in every skill, not just this one. (`git-guardrails-claude-code` is the matching skill.)
+> 
+> ## 3. `show me` answers are too dense
+> 
+> **What happened:** you pasted T05's answer back and asked for "more details, simple". The answer was a compressed file:line summary. The plain walkthrough (the form, the rule, what happens step by step, why) is what landed.
+> 
+> **Fix (SKILL.md step 3):**
+> `show me` → the answer as a walkthrough: the key code lines, then what happens step by step in plain words, then the file:line references.
+> 
+> ## 4. Answer key gaps (minor, navigation)
+> 
+> - **T04:** the key says "system notes", but the code says `role: 'note'`. The mapping to `system` lives in another file, `ai-sdk.llm.ts:23`. Adding that line to the key's Answer lets grading and `show me` explain it without a search.
+> - **T07:** your server-side answer (Products come only from the catalog) is a correct half the key doesn't mention. Adding "Partial credit: server side → still ask for the web rendering boundary" makes grading consistent across sessions.
+> 
+> ---
+> 
+> **My recommendation:** apply 1 and 2 now. They're small SKILL.md edits plus one hook. 3 and 4 are one-line additions. Separately, the `CONVERSATION.md` recovery from session transcripts is still open. Should I do all of it, or only some?
+
+### 2026-11-19T07:49:59.244Z : /retro — user
+
+> apply all of them
+
+### 2026-11-19T07:50:52.451Z : /retro — assistant
+
+> I applied all four fixes. Nothing is committed yet.
+> 
+> **1. `show me` answer never shown** (`.claude/skills/practice/SKILL.md`)
+> - **New rule:** everything you need to read (task text, a `show me` answer, Why, Interview, the End report) goes in the last message of the turn, after all commands have run.
+> - **End step:** it now runs only on your next reply after task 5. Task 5's answer gets its own turn and can't be buried under the cleanup again.
+> 
+> **2. The AI log got wiped**
+> - **SKILL.md End step:** it now saves the log before switching back: `git stash push -- docs/ai-log/CONVERSATION.md && git switch --discard-changes <home> && git stash pop`. It also notes that `NOTES.md` survives only because `.gitignore` ignores the skill folder.
+> - **New guard hook:** `.claude/hooks/guard-ai-log.mjs`, wired into `.claude/settings.json`. It works for every skill, not just `/practice`. While `CONVERSATION.md` has uncommitted changes, it blocks any git command that would throw them away (forced switch or checkout, `checkout -- .`, `reset --hard`, `restore .` or restoring the log itself). It still allows those commands when the same command stashes the log first.
+> - **Tested:** I ran 11 sample commands through the hook. The 6 destructive ones were blocked and the 5 safe ones were allowed, including the new End step command. Prettier passes on both files; eslint ignores `.claude/`, so it didn't lint the hook. Claude Code may only pick up the new hook after you open `/hooks` or restart the session.
+> 
+> **3. Simpler `show me` answers** (SKILL.md step 3): a `show me` now gives the key code lines first, then what happens step by step in plain words, then the file:line references.
+> 
+> **4. Answer key** (`TASKS.md`)
+> - **T04:** now points to `ai-sdk.llm.ts:23`, where `role: 'note'` becomes a `system` message for the model.
+> - **T07:** a server-side answer like yours now counts as a correct half. The coach says so and then asks for the web part.
+> 
+> The practice skill folder is gitignored, so fixes 1, 3 and 4 stay local. Only `.claude/settings.json` and the new hook would go into a commit.
+> 
+> Two things are still open: committing the hook, and rebuilding the wiped `CONVERSATION.md` entries from the session transcripts. Should I do either?
+
+### 2026-11-19T07:52:13.875Z : /retro — user
+
+> if i start skill now it will checkout from current local branch?
+
+### 2026-11-19T07:52:18.558Z : /retro — assistant
+
+> Yes. Start runs `git switch -c practice/<date>` from whatever branch you're on, so right now it would branch from `fix/recommendations-exclude-matches` (two local commits not pushed yet). At the end it returns to that same branch.
+> 
+> But it won't get that far yet. Start requires a working tree with no changes except `CONVERSATION.md`, and right now there are two more:
+> 
+> ```
+>  M .claude/settings.json
+> ?? .claude/hooks/guard-ai-log.mjs
+> ```
+> 
+> So it would stop and ask you to commit or stash first. Committing them is the better option: if you stash them, the guard hook isn't active during practice. Should I commit them on this branch?
