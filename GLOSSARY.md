@@ -31,3 +31,5 @@
 **Follow-up** — a Shopper message that only makes sense with earlier Messages (e.g. "show me cheaper ones").
 
 **Recommended Group** — a Product Group of similar Products shown below the matches of one Search Intent ("You might also like"). It never repeats a Product shown in the matches and respects the same price limit.
+
+**Partial Result** — a Product Group built from only part of the Catalog, because the whole Catalog was too large to check. The Assistant always says how much it checked (e.g. "I checked 500 phones and found 3 under $500").
