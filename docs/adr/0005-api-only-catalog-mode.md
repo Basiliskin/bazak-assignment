@@ -6,7 +6,7 @@
 ADR 0002 downloads the whole Catalog (194 Products) and filters it in memory; it says this does not scale. For a large Catalog (~1M Products) owned by a third party, that is always live and may not be copied, the DummyJSON API lacks what we need: no price/rating/brand filter, substring-only search, no search inside a category, and `sortBy` only on `/products` (not on `/products/search` or `/products/category/{slug}`). The category list may change, so it can't stay a constant either.
 
 ## Decision
-- `CatalogService` talks to a new `ProductSearchPort` — `search(query) → { products, total, matchIds, coverage }`, `topRated`, `getById` — instead of the whole-Catalog `CatalogPort.getAll()`. `InMemoryProductSearch` wraps `filterProducts` over `CatalogPort`, which stays for memory mode only (the Recommended Group embeds every Product). A new API-only adapter is chosen by `CATALOG_MODE=memory|api` (default `memory`); `total` becomes `number | null` when it lands.
+- `CatalogService` talks to a new `ProductSearchPort` — `search(query) → { products, total, matchIds, coverage }`, `topRated`, `getById` — instead of the whole-Catalog `CatalogPort.getAll()`. `InMemoryProductSearch` wraps `filterProducts` over `CatalogPort`, which stays for memory mode only (the Recommended Group embeds every Product). A new API-only adapter is chosen by `CATALOG_MODE=memory|api` (default `memory`); `total` counts the matches found among the checked Products, and `coverage.complete` says whether that is all of them.
 - One LLM call produces the structured query; code fans it out to category pages and single-keyword searches in parallel, merges by id, then filters (price, stock), scores and sorts in code. No category and no keywords → `/products?sortBy=…` (the only true global sort). In API mode keywords are required for vague requests.
 - Bounded work: ≤ 5 category pages of 100, ≤ 3 keyword searches, ≤ 4 calls in flight, 3 s per call, 4 s per search. Failed or late pages are dropped and the result is marked incomplete; one retry on 429 only if `Retry-After` fits the budget; all calls failed → `CatalogUnavailableError`. No circuit breaker.
 - Sorting and "N more" apply only to what was fetched; an incomplete search is a **Partial Result** and the Assistant says how much it checked. "Show more" pages through the cached matches of that search; when they run out it says so instead of scanning further.
@@ -20,5 +20,5 @@ ADR 0002 downloads the whole Catalog (194 Products) and filters it in memory; it
 
 ## Consequences
 - Answers in API mode can miss matches beyond the checked pages; the shopper is told, never misled.
-- `total` can be unknown, so Product Group counts and history notes must handle `null`.
+- In a Partial Result `total` is a lower bound ("9 found in the 500 checked"), so the Assistant's wording must come from `coverage`.
 - Proven by a same-answer test: with limits large enough to see everything, both adapters return the same results on the 194-Product fixture.

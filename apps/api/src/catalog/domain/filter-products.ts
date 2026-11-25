@@ -20,7 +20,7 @@ export interface SearchResult {
 const FIELD_WEIGHTS = { title: 3, tags: 2, brand: 2, description: 1 } as const;
 
 /** Lower-case, trimmed, plural → singular ("lipsticks" → "lipstick") so it also matches inside "iPhone"/"Handbag". */
-const normalizeKeyword = (k: string): string => {
+export const normalizeKeyword = (k: string): string => {
   const w = k.trim().toLowerCase();
   return w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
 };
