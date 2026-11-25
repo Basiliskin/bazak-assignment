@@ -14,14 +14,16 @@ npm run dev
 
 - Web: http://localhost:5173. The shop page with the copilot as a floating ✦ widget; ⤢ opens the same chat full page at `/chat/:id`.
 - API: http://localhost:3001/api.
-- The API won't start without `OPENAI_KEY`, or with any model other than `gpt-6-luna`.
+- The API won't start without `OPENAI_KEY`, or with any model other than `gpt-6-luna` (the default `LLM_PROVIDER=openai`).
+- `CATALOG_MODE=api` searches DummyJSON live on every message instead of downloading the catalog at startup (ADR 0005). The default is `memory`.
+- Local development only: `LLM_PROVIDER=anthropic` runs the assistant on Claude, or on any Anthropic-compatible API through `ANTHROPIC_BASE_URL` (I tried it with DeepSeek). Each provider takes an optional `*_BASE_URL`; `.env.example` lists every setting.
 - Conversations are stored in `data/app.db` (SQLite, created on first start). Delete the file to reset.
 
-| Command                                                | What it does                                                                                                                                         |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm test`                                             | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB).                                         |
-| `npm run eval`                                         | 7 live cases against `gpt-6-luna` and the real catalog (~40 s, a few cents). Writes the result table to `docs/qa-report.md`, exits 1 on any failure. |
-| `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build.                                                                                                                  |
+| Command                                                | What it does                                                                                                                                                                                         |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                             | All unit, component and API e2e tests. Offline: no key, no network (mock model, fake catalog, in-memory DB).                                                                                         |
+| `npm run eval`                                         | 7 live cases against the configured model and the real catalog (~40 s, a few cents). Writes the result table to `docs/qa-report.md` (its own table with `CATALOG_MODE=api`), exits 1 on any failure. |
+| `npm run lint` · `npm run typecheck` · `npm run build` | Static checks and production build.                                                                                                                                                                  |
 
 ## Architecture & framework choice
 
@@ -29,12 +31,12 @@ npm run dev
 flowchart LR
   Shopper((Shopper)) --> Web[apps/web<br/>React + useChat]
   Web -- "POST /api/chat (SSE)<br/>GET /api/conversations" --> API[apps/api<br/>NestJS]
-  API -- "streamText + tools" --> LLM[(OpenAI<br/>gpt-6-luna)]
-  API -- "GET /products?limit=0<br/>cached 10 min" --> DJ[(DummyJSON)]
+  API -- "streamText + tools" --> LLM[(OpenAI gpt-6-luna<br/>dev: Anthropic-compatible)]
+  API -- "memory: /products?limit=0 (10 min)<br/>api: per-search lists (30 s)" --> DJ[(DummyJSON)]
   API --> DB[(SQLite<br/>data/app.db)]
 ```
 
-I used the **Vercel AI SDK v7** (ADR 0001). The assignment has three hard parts: a tool-calling loop, token streaming with tool results mixed in, and chat state in the browser. The SDK covers all three. `streamText` runs the loop in the API (two tools, at most 3 steps, last step text only), a NestJS controller pipes its UI message stream (SSE), and `useChat` renders it. It also solved a gpt-6-luna quirk: the model rejects function tools on `/chat/completions`, and the SDK uses the Responses API. SDK types stay in two adapter folders. The database stores my own `Message` shape, so switching frameworks would touch only those adapters.
+I used the **Vercel AI SDK v7** (ADR 0001). The assignment has three hard parts: a tool-calling loop, token streaming with tool results mixed in, and chat state in the browser. The SDK covers all three. `streamText` runs the loop in the API (two tools, at most 3 steps, last step text only), a NestJS controller pipes its UI message stream (SSE), and `useChat` renders it. It also solved a gpt-6-luna quirk: the model rejects function tools on `/chat/completions`, and the SDK uses the Responses API. SDK types stay in two adapter folders. The database stores my own `Message` shape, so switching frameworks would touch only those adapters. The proof: adding Claude as a local-dev provider was one new `LlmPort` adapter plus config and wiring; the domain, application code, web app and database didn't change.
 
 Alternatives I rejected:
 
@@ -48,6 +50,8 @@ The repo is npm workspaces: `apps/api`, `apps/web`, and `packages/contracts` for
 ## Retrieval strategy
 
 I call one DummyJSON endpoint: `GET /products?limit=0`. It returns all 194 Products, which the API caches for about 10 minutes (5 s timeout; if DummyJSON is down, it serves the stale copy). Chat search, the details popup and the shop grid all read from this copy. I tried the API's own search first and it didn't fit: `search?q=` is a substring match ("cheap" → 0 results, "smartphone phone" → 0, "phone" also returns phone accessories), there is no price filter (`maxPrice` is silently ignored), and `sortBy` is only documented on `/products`. At this catalog size, filtering in memory is simpler and exact (ADR 0002).
+
+**Without a copy of the catalog** (`CATALOG_MODE=api`, ADR 0005). I also built a mode for a big third-party catalog, say a million Products, that is always live and may not be copied. The API's gaps don't go away, so code fills them on every message. The model still writes one query through the same tool. Code reads the category list plus up to 3 single-keyword searches in parallel (with neither, `/products?sortBy=…`), merges by id, and runs the same `filterProducts`. The work has fixed limits: at most 5 pages of 100 per list, 4 calls in flight, 3 s per call and 4 s per search, one 429 retry if it fits, and a 30 s cache. If a page is lost, the answer is a Partial Result and the reply says how many Products it checked; if nothing arrives, it says it can't search right now. It costs two things: no "You might also like", because embeddings need the whole catalog, and keyword-only searches find less, because DummyJSON search ignores brand and tags ("apple": 10 vs 14+). I rejected a synced database (copying isn't allowed in this scenario, and prices would lag one sync) and an LLM agent loop (+1–2 s per round, and non-deterministic). A same-answer test runs 40 queries on the recorded real catalog through both modes and expects the same Products (a subset for keyword-only).
 
 **The model decides the query by filling in a tool.** `search_products` takes `category` (an enum of the 24 real slugs, or null), single-word `keywords`, `minPrice`/`maxPrice`, `sortBy`, `offset`, and `confidence: clear | guessed` with an `assumption` that the schema requires when the search is a guess. Confidence is a label rather than a number, because a model's self-reported number isn't calibrated. The code then does the part that has to be right: `filterProducts` (a pure function) drops out-of-stock items, matches category, matches keywords inside words with title weighted above description, applies the exact price range, sorts, and returns 4 cards plus a total. Cards render only from tool output, so the model can't put an invented Product on screen.
 
@@ -78,9 +82,9 @@ One gap: if `data/app.db` is deleted while the API runs, nothing crashes, but th
 
 ## Evaluation
 
-There are two suites, split by cost. `npm test` runs offline with no key: pure functions, React components, and API e2e tests that run a whole turn with the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. Each e2e test posts a message, checks that the stream carries tool output and then text, and reads the Conversation back to confirm both Messages were saved.
+There are two suites, split by cost. `npm test` runs offline with no key: pure functions, React components, and API e2e tests that run a whole turn with the AI SDK's `MockLanguageModel`, a fake Catalog, a fake embedder and in-memory SQLite. Each e2e test posts a message, checks that the stream carries tool output and then text, and reads the Conversation back to confirm both Messages were saved. API-only mode has its own offline tests: the adapter against a fake DummyJSON (lost pages, timeouts, 429, caching) and a same-answer test that runs 40 queries on the recorded real catalog through both modes. Small e2e tests check that `CATALOG_MODE` and `LLM_PROVIDER` pick the right adapter, and `AnthropicLlm` runs against a fake SDK stream. `LIVE_DUMMYJSON=1` runs the API-only adapter against the real DummyJSON; it's off by default, so `npm test` stays offline.
 
-`npm run eval` runs 7 cases against `gpt-6-luna` and the real Catalog: plain, price, ambiguous, off-catalog, multi-intent, follow-up and beach. I check the rules in code on the saved Message instead of asking an LLM judge, so a failure always means the same thing. The rules: every Product is real, in stock and within the price limit; at most 4 cards; a guessed search has an Assumption and a question; off-catalog calls `report_off_catalog`; one group per intent; a follow-up is cheaper than the previous result; recommendations don't repeat matches; and beach matches come from beach categories. It writes the table to `docs/qa-report.md` and exits 1 on any failure. It isn't part of `npm test` because it costs money and its results can vary.
+`npm run eval` runs 7 cases against the configured model (`gpt-6-luna` by default) and the real Catalog: plain, price, ambiguous, off-catalog, multi-intent, follow-up and beach. I check the rules in code on the saved Message instead of asking an LLM judge, so a failure always means the same thing. The rules: every Product is real, in stock and within the price limit; at most 4 cards; a guessed search has an Assumption and a question; off-catalog calls `report_off_catalog`; one group per intent; a follow-up is cheaper than the previous result; recommendations don't repeat matches; and beach matches come from beach categories. It writes the table to `docs/qa-report.md` and exits 1 on any failure. With `CATALOG_MODE=api` it writes its own table. So far API mode has run live only on DeepSeek, through the Anthropic-compatible provider: 6/7, and the failure was a bug in the check (fixed). It isn't part of `npm test` because it costs money and its results can vary.
 
 The eval earned its place. After S8 it went from 5/7 to 7/7: a broad search left nothing to recommend, and recommendations depended on the order of tool calls. Earlier live runs found the model searching for "flight" three times without replying, "Show more" changing the sort order, and empty "Travel bags" groups under off-catalog replies.
 
@@ -92,6 +96,9 @@ What gets through:
 - **Threshold:** whether 0.35 is right beyond these 7 cases.
 - **The real embedding model download:** tests use a fake embedder.
 - **Layout:** checked by hand in Chrome; there's no Playwright.
+- **The checks:** R2 looked only at the first guessed group and failed a correct reply (fixed, D60).
+- **Why a group came back empty:** the report keeps labels and counts, not queries. The empty "Cool gadgets" group in the API-mode run can't be explained from it.
+- **DummyJSON changing:** the same-answer test uses a recorded snapshot; only the opt-in live test would notice.
 
 ## Known limitations
 
@@ -99,14 +106,16 @@ The weakest part is relevance. Results are only as good as the category and keyw
 
 It's also slow: about 5–6 s per turn with tools, and "Show more" costs another model call because it goes through the LLM instead of a paging endpoint. The local embedding model adds about 470 MB to `node_modules`. If it fails to load, every search retries and logs a warning. In a multi-intent turn, a recommendation can repeat a Product from the other intent. A bad API key gets the same "try again" message as a temporary failure, so Retry can't help, and `minPrice > maxPrice` isn't rejected and just returns an empty group. Scope cuts: no auth (one shared Conversation list), English and USD only, no stop button or rename, and titles are the first ~40 characters.
 
+API mode (ADR 0005) trades completeness for not copying the catalog. It reads at most 500 Products per category list, so it can miss matches beyond that, though it says how many it checked instead of hiding it. Keyword-only searches find less, and a vague request without keywords can come back empty: a live run showed "Cool gadgets under $30 (0 of 0)" next to a good sunglasses group. It has no "You might also like", and a search can add up to 4 s. The Claude provider has only run on DeepSeek, never on Claude itself, and it isn't tuned: Opus 5.5 thinks by default, which adds time per turn.
+
 With another week, in this order:
 
-1. Run each eval case N times and report a pass rate, and add cases for 0 results, Show more and prompt injection in Product text.
+1. Run each eval case N times and report a pass rate, record each group's query in the report, run the API-mode eval on `gpt-6-luna`, and add cases for 0 results, Show more and prompt injection in Product text.
 2. Tune the 0.35 threshold on a labelled set (recall@k) and check relevance on every case.
-3. Fix the small ones: empty off-catalog groups, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
+3. Fix the small ones: empty off-catalog groups, retry a guessed search that came back empty, a clear auth error, reject `minPrice > maxPrice`, back off after a failed model load.
 4. Add Playwright tests for streaming, cards and reload.
 5. Add auth with a `shopperId`, a stop button, and code-splitting.
-6. For a large catalog, move to Postgres with pgvector and pg_search (hybrid search) behind the same ports.
+6. If the catalog may be copied: a synced Postgres with pgvector and pg_search (hybrid search, global sort, complete results) behind the same ports. If it may not, API mode (ADR 0005) is the answer, and the work is tuning its limits.
 
 ## How this was built
 

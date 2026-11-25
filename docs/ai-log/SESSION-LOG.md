@@ -656,3 +656,70 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Decision:** D60 — R2 = any guessed group with an Assumption and cards, plus a question.
 **Artifacts:** `evals/checks.ts`, `evals/checks.spec.ts`, `docs/qa-report.md`. Commit e56f79d.
 **Next step:** `/readme` — Setup, Architecture, Retrieval, Evaluation, Known limitations.
+
+## 2026-11-25 12:45 : /readme — Section 1 Setup refresh (D57–D59)
+
+**User input:**
+> confirm + a
+
+**Found:** Setup says the API needs `OPENAI_KEY` + gpt-6-luna — now only for `LLM_PROVIDER=openai`; `CATALOG_MODE`, the API-mode eval table, `LLM_PROVIDER=anthropic` and `*_BASE_URL` not mentioned. `npm test` still offline (`live-dummyjson.e2e-spec.ts` skipped unless `LIVE_DUMMYJSON=1`).
+**Options offered:** mention the Claude/DeepSeek option as one line, labelled local development only (a, rec.); leave it out of the README (b).
+**Decision:** all six points confirmed; (a).
+**Artifacts:** none yet (drafts next).
+
+## 2026-11-25 12:50 : /readme — Section 1 Setup refresh, draft chosen
+
+**User input:**
+> a
+
+**Options offered:** drafts (a) bullets (rec.) / (b) prose.
+**Decision:** (a); eval row → "the configured model", own table in API mode.
+**Artifacts:** `README.md` (Setup and run).
+**Next step:** `/readme architecture`.
+
+## 2026-11-25 12:55 : /readme — Section 2 Architecture refresh (D57–D58)
+
+**User input:**
+> agree
+
+**Found:** diagram showed memory mode only (DummyJSON `/products?limit=0`, 10 min) and OpenAI only; the "only adapters change" claim is now backed by `AnthropicLlm` (d362533). Official SDK vs `@ai-sdk/anthropic` was the builder's call, not a user trade-off — left out of rejected alternatives.
+**Options offered:** diagram (a) relabel two edges (rec.) / (b) leave; second adapter (a) one proof sentence (rec.) / (b) omit.
+**Decision:** (a) + (a); proof sentence corrected to "one new adapter plus config and wiring" (config and module changed too).
+**Artifacts:** `README.md` (Architecture & framework choice).
+**Next step:** `/readme retrieval`.
+
+## 2026-11-25 13:05 : /readme — Section 3 Retrieval refresh (D57)
+
+**User input:**
+> agree
+> b
+
+**Found:** opening paragraph ("one DummyJSON endpoint") holds for memory mode only; API mode, its limits, Partial Result, costs and rejected options (ADR 0005) not in the README. Same-answer test: same Products except keyword-only (subset).
+**Options offered:** placement (a) paragraph after the opening one (rec.) / (b) subsection at the end; rejected alternatives (a) synced DB + agent loop (rec.) / (b) DB only; drafts (a) bullets / (b) prose (rec.).
+**Decision:** (a), (a), (b) with the "(a subset for keyword-only)" correction. Cool-gadgets empty group → Known limitations.
+**Artifacts:** `README.md` (Retrieval strategy).
+**Next step:** `/readme evaluation`.
+
+## 2026-11-25 13:15 : /readme — Section 5 Evaluation refresh (D57–D60)
+
+**User input:**
+> agree
+> b
+
+**Found:** eval paragraph named gpt-6-luna only; new offline tests (fake DummyJSON, same-answer, wiring e2e, AnthropicLlm fake stream, opt-in `LIVE_DUMMYJSON=1`) not mentioned; API mode has no gpt-6-luna live result — only the user's DeepSeek run (6/7, R2 check bug). Section 4 Conversation & state unaffected — skipped.
+**Options offered:** API-mode result (a) state as is (rec.) / (b) wait for a gpt-6-luna run; R2 bug (a) under "What gets through" (rec.) / (b) as a catch; drafts (a) bullets / (b) prose (rec.).
+**Decision:** (a), (a), (b).
+**Artifacts:** `README.md` (Evaluation).
+**Next step:** `/readme limitations`.
+
+## 2026-11-25 13:25 : /readme — Section 6 Known limitations refresh (D57–D60)
+
+**User input:**
+> agree
+> b
+
+**Found:** API-mode limits (≤ 500 per category list, keyword-only finds less, empty vague guess seen live, no Recommended Group, up to 4 s per search) and the Claude provider never run on Claude itself — none in the README; item 6 (Postgres for a large catalog) needed to sit beside API mode.
+**Options offered:** item 6 (a) copy allowed → synced Postgres, not allowed → API mode (rec.) / (b) separate item; empty-guess retry (a) into item 3 (rec.) / (b) omit; drafts (a) bullets / (b) prose (rec.).
+**Decision:** (a), (a), (b); item 1 adds query recording and a gpt-6-luna API-mode run.
+**Artifacts:** `README.md` (Known limitations). README refresh for D57–D60 complete.
+**Next step:** `/interview`
