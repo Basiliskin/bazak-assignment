@@ -132,3 +132,23 @@ Likely "why X and not Y?" questions raised by each decision. Each `→` lists th
 - Why order the match page by similarity and not filter it by the 0.35 threshold? → SL:534 (D54), `filter-products.ts:60-82`
 - Why does "Show more" still get the similarity order when it gets no Recommended Group? → `catalog.service.ts:17-22,52-56` (`semanticQuery` on every page, `recommend` only on page 1), `to-product-group.ts:38`
 - Why a category allow-list for the beach rule and not an LLM judge? → SL:535 (D55), `evals/checks.ts:162`, `evals/cases.ts:55`
+
+## /grill-with-docs-simple — filters the API doesn't provide (ADR 0005)
+- DummyJSON can't filter by price or sort a category — why not sync it into a DB? → `docs/adr/0005-api-only-catalog-mode.md:16` (Considered options), SL:621 (D57)
+- Without a DB, who decides which API calls to make — the LLM or your code? Why not an agent loop? → `apps/api/src/catalog/domain/plan-api-search.ts:35` (`planApiSearch`), ADR 0005 Considered options
+- One of five pages times out — what does the Shopper see? → `api-only.product-search.ts:157` (`complete`), `system-prompt.ts:12` (`PARTIAL_RESULT_RULES`), `GLOSSARY.md` (Partial Result)
+- And when every call fails? → `api-only.product-search.ts:153` (`CatalogUnavailableError` only when nothing arrived)
+- How do you stop one search from hammering DummyJSON, and what about a 429? → `api-only.product-search.ts:32` (`DEFAULT_API_SEARCH_LIMITS`), `:185` (`withRun` deadline), `:245` (`call`: Retry-After once, inside the budget)
+- How do you know API mode gives the same answers as memory mode? → `apps/api/src/catalog/infrastructure/same-answer.spec.ts` (40 queries, real catalog snapshot)
+- Why no "You might also like" in API mode? → `catalog.module.ts:62`, ADR 0005 Consequences
+- With a million products and dynamic categories, does any of this still hold? → ADR 0005 Consequences (misses beyond the checked pages; `total` is a lower bound)
+
+## feat — optional Claude provider (D58–D59)
+- The assignment allows only gpt-6-luna — why add another provider at all? → SL:646 (D58), `assistant.module.ts:42` (warns at startup), `app-config.ts:40` (gpt-6-luna still enforced for openai)
+- Why a second adapter on `@anthropic-ai/sdk` and not swap the AI SDK provider? → `anthropic.llm.ts` (class doc), `llm.port.ts` (the port it plugs into)
+- History notes are system messages — why put them in the user turn for Claude? Can a Shopper forge one? → `anthropic.llm.ts:61` (`toClaudeMessages`), `:31` (tag stripped from Shopper text)
+- What stops a model from ending the turn on a tool call, or running a truncated tool input? → `anthropic.llm.ts:180` (`tool_choice: none` on the last step), `:213` (max_tokens + tool_use → error), `:93` (`parseCall` zod check)
+- Can I run it on a gateway or an Anthropic-compatible model (e.g. DeepSeek)? → `app-config.ts:22` (`optionalUrl`), `.env.example`
+
+## fix — eval R2 with two guesses (D60)
+- "Something cheap and cool" failed R2 though cards were shown — eval bug or product bug? → `evals/checks.ts:102` (`checkAssumption`), SL:656 (D60); the empty "Cool gadgets" group is still unexplained (report keeps no queries)

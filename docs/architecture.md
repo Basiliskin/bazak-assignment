@@ -43,6 +43,10 @@ Decisions: `docs/ai-log/SESSION-LOG.md` (/architect rounds 1–3) · ADRs: `docs
 | D50 | Exclusions | ~~Recommended Group excludes the shown match page only~~ → replaced by D56: it excludes **every** match (a hidden match under "You might also like" read as a duplicate; D54 already orders broad matches by similarity) |
 | D45 | Group shape | `search_products` returns `{match, recommended \| null}`; `ProductGroupSchema.kind: 'match' \| 'recommended'`; `Message.productGroups` stays flat |
 | D19 | Env loading | API loads repo-root `.env` itself via `process.loadEnvFile` (path from the module, not cwd); env vars win; relative paths resolve against repo root |
+| D57 | Catalog source | `CATALOG_MODE=memory\|api` (default memory). `api` = no copy of the Catalog: `ProductSearchPort` → `ApiOnlyProductSearch` reads the DummyJSON lists `planApiSearch` picks, in parallel within fixed limits, and filters with the same `filterProducts`; a lost page → Partial Result `{checked, complete}`; no Recommended Group — ADR 0005 |
+| D58 | LLM provider | `LLM_PROVIDER=openai\|anthropic` (default openai = gpt-6-luna, the only allowed model). `anthropic` is local-dev only: `AnthropicLlm` on `@anthropic-ai/sdk` behind the same `LlmPort`, same UI message stream; history notes ride in the next user turn as `<system_note>` blocks |
+| D59 | Provider endpoints | Optional `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL` (proxy, gateway, Anthropic-compatible API); unset = provider default |
+| D60 | Eval R2 | Passes when **any** guessed group with an Assumption shows cards (a reply may guess in several directions) |
 | — | Code style | **Functional core, imperative shell**: all logic in pure functions; services only do I/O |
 
 ## Facts this design rests on (verified 2026-11-17)

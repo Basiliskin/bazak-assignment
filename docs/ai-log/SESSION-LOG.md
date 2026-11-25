@@ -606,3 +606,53 @@ Decisions per skill run. Raw prompts and replies are captured automatically in `
 **Options offered:** exclude every match (rec.; D54 already orders broad matches by similarity, which was D50's reason).
 **Decision:** D56 — exclude every match; `filterProducts` returns `matchIds`; eval beach case no longer expects a Recommended Group.
 **Artifacts:** `filter-products.ts`, `catalog.service.ts`, `recommendation.service.ts`, specs, `evals/cases.ts`, ADR 0004 amendment, architecture D50 row, README.
+
+## 2026-11-25 11:00 : /grill-with-docs-simple — filters the API doesn't provide (DB sync vs API-only)
+
+**User input:**
+> /grill-with-docs-simple In assigment the API doesnt provided all filters which are required , what approaches can be taken to solve this both with data can be sync to our db and without db as source , only API
+> so without db the idea is LLM guess categories and keywords in first call or search products with multiple avalliable queries ?
+> ok, so we dont need off_products tool then ?(we dont know the avaliable categories of 1M products)
+> option 1 - I want to implement no DB production ready solution
+> agree (to every recommendation, Q1–Q12)
+
+**Found:** checked DummyJSON live: only `/products` takes `sortBy`/`order`; category and search lists take only `limit`/`skip`; every list returns `total`; search matches title and description only (memory mode also matches brand and tags).
+**Options offered:** (1) API-only — the LLM writes one structured query, code fans out parallel calls and filters in code (rec.); (2) DB sync — full paged reload + upsert, delta only if the API owner adds one. Rejected for (1): an agent loop of model-chosen calls; embedding the fetched pool.
+**Decision:** D57 — `CATALOG_MODE=memory|api`, memory stays the default. `ProductSearchPort` with `InMemoryProductSearch` / `ApiOnlyProductSearch`; `planApiSearch` picks the lists; capped pages, 4 calls in flight, 3 s per call, 4 s per search, 429 retried once inside the budget; a lost page → Partial Result `{checked, complete}` that the Assistant must state; nothing arrived → Catalog unavailable; 30 s caches; no Recommended Group in API mode. New term: **Partial Result**.
+**Artifacts:** `docs/adr/0005-api-only-catalog-mode.md`, `GLOSSARY.md` (Partial Result).
+
+## 2026-11-25 11:58 : build — API-only Catalog (ADR 0005 steps 1–5)
+
+**User input:**
+> yes (step 1) · yes (step 2) · yes (step 3) · yes (step 4)
+> will it use real openai api ?
+> ok
+
+**Found:** plan deviations, each told to the user: `CatalogPort.getAll` kept for memory mode and embeddings; `total` stays a number (a lower bound in a Partial Result); dynamic categories dropped (not in the agreed plan); keyword-only results are a subset of memory mode's.
+**Options offered:** do the offline parts of step 5 and ask before the paid `CATALOG_MODE=api npm run eval` (rec., yes).
+**Decision:** D57 built. Same-answer test: 40 queries on the real catalog snapshot give the same products in both modes (keyword-only: a subset). Live eval writes a separate API-mode section.
+**Artifacts:** `api-only.product-search.ts`, `plan-api-search.ts`, `ttl-cache.ts`, `in-memory.product-search.ts`, `catalog.module.ts`, `system-prompt.ts` (Partial Result rules), `chat-turn.service.ts`, contracts `CoverageSchema`, `same-answer.spec.ts`, `catalog-mode.e2e-spec.ts`, `live-dummyjson.e2e-spec.ts`, `evals/report.ts`. Commits 8d5cc53…67989c8.
+
+## 2026-11-25 12:17 : feat — optional Claude provider, per-provider base URLs
+
+**User input:**
+> I want to switch to my local claude subscriotion provider, is it possible ?
+> add the Claude option
+> I need to be able to set baseUrl for each provider
+> please update env.example
+
+**Found:** a claude.ai subscription is not API access (Claude API auth = Console API key, `ANTHROPIC_AUTH_TOKEN` or `ant auth login`, billed per token); the assignment allows only gpt-6-luna; embeddings are local (ADR 0004), so no hidden OpenAI dependency. Claude rejects a system message right after an assistant reply — where history notes (D25) sit.
+**Options offered:** keep OpenAI for the submission (rec.); add Claude as a local-dev-only option behind `LlmPort` on the official `@anthropic-ai/sdk`.
+**Decision:** D58 — `LLM_PROVIDER=openai|anthropic`, default openai, gpt-6-luna still enforced for openai. `AnthropicLlm` runs the tool loop itself and writes the same UI message stream as `AiSdkLlm`; notes go into the next user turn as `<system_note>` blocks (tag stripped from Shopper text). D59 — `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL`, unset = provider default; lets the anthropic provider run any Anthropic-compatible endpoint (the user runs DeepSeek).
+**Artifacts:** `anthropic.llm.ts` (+ spec), `llm-turn.ts`, `assistant.module.ts`, `app-config.ts` (+ spec), `llm-provider.e2e-spec.ts`, `.env.example`. Commit d362533.
+
+## 2026-11-25 12:26 : fix — eval R2 failed on a reply with two guesses
+
+**User input:**
+> I tried the eval … ambiguous failed … "R2: guessed search showed no cards" … please note I use deepseek provider as antropic
+
+**Found:** for "something cheap and cool" the model made two guessed searches — "Cool gadgets under $30" (0 cards) and "Cool sunglasses under $30" (4 cards). `checkAssumption` looked only at the first guessed group. Why "gadgets" was empty is unknown: the eval DB is in-memory and the report keeps only label and count.
+**Options offered:** R2 passes when any guessed group with an Assumption shows cards (rec.); optionally record each failing group's query in the report (open).
+**Decision:** D60 — R2 = any guessed group with an Assumption and cards, plus a question.
+**Artifacts:** `evals/checks.ts`, `evals/checks.spec.ts`, `docs/qa-report.md`. Commit e56f79d.
+**Next step:** `/readme` — Setup, Architecture, Retrieval, Evaluation, Known limitations.

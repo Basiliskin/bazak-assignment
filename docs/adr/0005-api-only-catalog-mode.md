@@ -1,6 +1,6 @@
 # 0005 — API-only Catalog mode: search the API per request, answer with Partial Results
 
-**Status:** proposed (2026-11-25, grilling session). Adds a mode next to ADR 0002; the in-memory Catalog stays the default.
+**Status:** accepted (2026-11-25, grilling session D57; built in commits 8d5cc53…67989c8). Adds a mode next to ADR 0002; the in-memory Catalog stays the default.
 
 ## Context
 ADR 0002 downloads the whole Catalog (194 Products) and filters it in memory; it says this does not scale. For a large Catalog (~1M Products) owned by a third party, that is always live and may not be copied, the DummyJSON API lacks what we need: no price/rating/brand filter, substring-only search, no search inside a category, and `sortBy` only on `/products` (not on `/products/search` or `/products/category/{slug}`). The category list may change, so it can't stay a constant either.
