@@ -97,3 +97,24 @@ describe('replaceEvalSection', () => {
     );
   });
 });
+
+describe('API-only mode section (ADR 0005)', () => {
+  const memory = renderEvalSection({ model: 'm', ranAt: 't1', results: [passing] });
+  const api = renderEvalSection({ model: 'm', ranAt: 't2', results: [passing], mode: 'api' });
+
+  it('has its own markers, heading and command', () => {
+    expect(api).toMatch(/^<!-- eval:api:start -->/);
+    expect(api).toContain('API-only Catalog');
+    expect(api).toContain('CATALOG_MODE=api npm run eval');
+  });
+
+  it('an API run never overwrites the memory results, and vice versa', () => {
+    const both = replaceEvalSection(replaceEvalSection('# QA report\n', memory), api, 'api');
+    expect(both).toContain(memory);
+    expect(both).toContain(api);
+    const rerun = replaceEvalSection(both, api.replace('t2', 't3'), 'api');
+    expect(rerun).toContain(memory);
+    expect(rerun).toContain('t3');
+    expect(rerun).not.toContain('t2');
+  });
+});

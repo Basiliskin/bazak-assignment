@@ -3,6 +3,19 @@ import type { CheckResult } from './checks.js';
 export const EVAL_START = '<!-- eval:start -->';
 export const EVAL_END = '<!-- eval:end -->';
 
+/** Which Catalog mode the eval ran against (ADR 0005). Each mode keeps its own section of the report. */
+export type EvalMode = 'memory' | 'api';
+
+const SECTIONS: Record<EvalMode, { start: string; end: string; heading: string; command: string }> = {
+  memory: { start: EVAL_START, end: EVAL_END, heading: '## Live eval', command: 'npm run eval' },
+  api: {
+    start: '<!-- eval:api:start -->',
+    end: '<!-- eval:api:end -->',
+    heading: '## Live eval — API-only Catalog (ADR 0005)',
+    command: 'CATALOG_MODE=api npm run eval',
+  },
+};
+
 export interface CaseResult {
   id: string;
   turns: readonly string[];
@@ -39,14 +52,16 @@ export function renderEvalSection(run: {
   model: string;
   ranAt: string;
   results: readonly CaseResult[];
+  mode?: EvalMode;
 }): string {
   const passed = run.results.filter(casePassed).length;
   const failed = failures(run.results);
+  const s = SECTIONS[run.mode ?? 'memory'];
   return [
-    EVAL_START,
-    '## Live eval',
+    s.start,
+    s.heading,
     '',
-    `\`npm run eval\` · model \`${run.model}\` · real DummyJSON Catalog · ${run.ranAt} · **${passed}/${run.results.length} cases passed**`,
+    `\`${s.command}\` · model \`${run.model}\` · real DummyJSON Catalog · ${run.ranAt} · **${passed}/${run.results.length} cases passed**`,
     '',
     'Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · relevant = match cards on topic (beach) · reply has text.',
     '',
@@ -55,15 +70,16 @@ export function renderEvalSection(run: {
     ...run.results.map(row),
     '',
     ...(failed.length ? ['**Failures**', '', ...failed] : ['No failures.']),
-    EVAL_END,
+    s.end,
   ].join('\n');
 }
 
 /** Pure: puts the section into the report — replaces the marked part, appends it, or starts a new report. */
-export function replaceEvalSection(doc: string | null, section: string): string {
+export function replaceEvalSection(doc: string | null, section: string, mode: EvalMode = 'memory'): string {
   if (doc === null) return `# QA report\n\n${section}\n`;
-  const start = doc.indexOf(EVAL_START);
-  const end = doc.indexOf(EVAL_END);
+  const markers = SECTIONS[mode];
+  const start = doc.indexOf(markers.start);
+  const end = doc.indexOf(markers.end);
   if (start === -1 || end < start) return `${doc.trimEnd()}\n\n${section}\n`;
-  return doc.slice(0, start) + section + doc.slice(end + EVAL_END.length);
+  return doc.slice(0, start) + section + doc.slice(end + markers.end.length);
 }

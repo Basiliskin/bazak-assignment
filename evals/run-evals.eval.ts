@@ -74,7 +74,7 @@ async function runCase(c: EvalCase): Promise<CaseResult> {
 const localTime = (d: Date) =>
   `${d.toLocaleDateString('sv-SE')} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
 
-describe(`live eval (${EVAL_CASES.length} cases)`, () => {
+describe(`live eval (${EVAL_CASES.length} cases, ${process.env.CATALOG_MODE ?? 'memory'} mode)`, () => {
   beforeAll(async () => {
     const loaded = loadConfig();
     if (!loaded.ok) throw new Error(`Live eval needs a valid .env:\n  ${loaded.errors.join('\n  ')}`);
@@ -86,16 +86,19 @@ describe(`live eval (${EVAL_CASES.length} cases)`, () => {
     app = configureApp(moduleRef.createNestApplication({ logger: ['error', 'warn'] }));
     await app.listen(0);
     baseUrl = (await app.getUrl()).replace('[::1]', 'localhost');
-    catalog = await app.get(CatalogPort).getAll(); // the same cached Catalog the tools search
-    await app.get(RecommendationService).warmUp(); // embeddings ready before the first case (ADR 0004)
+    // The checks' ground truth (R1 real Products, R9 in stock): the whole Catalog, in both modes. In API
+    // mode the app never reads it — only the eval does, to judge the answers (ADR 0005).
+    catalog = await app.get(CatalogPort).getAll();
+    if (config.catalogMode === 'memory') await app.get(RecommendationService).warmUp(); // ADR 0004
   });
 
   afterAll(async () => {
     await app?.close();
     if (!results.length) return;
-    const section = renderEvalSection({ model: config.model, ranAt: localTime(new Date()), results });
+    const mode = config.catalogMode;
+    const section = renderEvalSection({ model: config.model, ranAt: localTime(new Date()), results, mode });
     const existing = await readFile(REPORT, 'utf8').catch(() => null);
-    await writeFile(REPORT, replaceEvalSection(existing, section));
+    await writeFile(REPORT, replaceEvalSection(existing, section, mode));
     console.log(`\n${section}\n\nWritten to docs/qa-report.md`);
   });
 

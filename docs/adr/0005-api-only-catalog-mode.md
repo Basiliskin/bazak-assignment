@@ -21,4 +21,5 @@ ADR 0002 downloads the whole Catalog (194 Products) and filters it in memory; it
 ## Consequences
 - Answers in API mode can miss matches beyond the checked pages; the shopper is told, never misled.
 - In a Partial Result `total` is a lower bound ("9 found in the 500 checked"), so the Assistant's wording must come from `coverage`.
-- Proven by a same-answer test: with limits large enough to see everything, both adapters return the same results on the 194-Product fixture.
+- Keyword-only searches find fewer Products in API mode: DummyJSON's search matches title and description only (checked live 2026-11-25), while memory mode also matches brand and tags ("apple": 10 vs 14+). With a category the answers are the same, because the whole category is read.
+- Proven by a same-answer test: with limits large enough to see everything, both adapters return the same results on the recorded real 194-Product Catalog (category, price, sort and paging queries); keyword-only results are checked to be a subset.
