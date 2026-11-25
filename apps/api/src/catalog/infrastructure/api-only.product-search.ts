@@ -1,10 +1,15 @@
-import { ProductSearchPort, type ProductSearchResult } from '../application/product-search.port.js';
+import {
+  ProductSearchPort,
+  type Coverage,
+  type ProductSearchResult,
+} from '../application/product-search.port.js';
 import { CatalogUnavailableError, ProductNotFoundError } from '../domain/catalog.errors.js';
 import { filterProducts, type CatalogQuery } from '../domain/filter-products.js';
 import { planApiSearch, type ApiSource } from '../domain/plan-api-search.js';
 import type { Product } from '../domain/product.js';
 import { topRated } from '../domain/top-rated.js';
 import { parseCatalogPage, parseProduct } from './parse-catalog.js';
+import { TtlCache } from './ttl-cache.js';
 
 /** How much one search may do (ADR 0005). One object so the numbers are tuned in one place. */
 export interface ApiSearchLimits {
@@ -19,6 +24,9 @@ export interface ApiSearchLimits {
   readonly callTimeoutMs: number;
   /** The whole search; when it runs out, whatever arrived is the answer. */
   readonly budgetMs: number;
+  /** How long API responses and a search's fetched Products are reused — "live" enough for a chat (ADR 0005). */
+  readonly cacheTtlMs: number;
+  readonly cacheMaxEntries: number;
 }
 
 export const DEFAULT_API_SEARCH_LIMITS: ApiSearchLimits = {
@@ -29,6 +37,8 @@ export const DEFAULT_API_SEARCH_LIMITS: ApiSearchLimits = {
   concurrency: 4,
   callTimeoutMs: 3000,
   budgetMs: 4000,
+  cacheTtlMs: 30_000,
+  cacheMaxEntries: 200,
 };
 
 export interface ApiOnlyProductSearchOptions {
@@ -50,6 +60,14 @@ interface SourceOutcome {
   reached: boolean;
   /** Every Product the list holds was read. */
   complete: boolean;
+  /** A page of it failed or came too late (as opposed to being left out by the page cap). */
+  failed: boolean;
+}
+
+/** What one search fetched, before price filter, sort and paging — reused for "Show more" and Follow-ups. */
+interface Fetched {
+  products: Product[];
+  coverage: Coverage;
 }
 
 /** One search's shared state: the deadline, its abort signal and the in-flight call slots. */
@@ -98,6 +116,10 @@ export class ApiOnlyProductSearch extends ProductSearchPort {
   private readonly fetchFn: typeof fetch;
   private readonly now: () => number;
   private readonly warn: (message: string) => void;
+  /** Valid pages by path: three Shoppers asking about phones within 30 s cost one set of calls. */
+  private readonly pages: TtlCache<Page>;
+  /** Fetched Products by plan: "Show more" pages through the same set, so its cards never shift (Q4). */
+  private readonly searches: TtlCache<Fetched>;
 
   constructor(private readonly options: ApiOnlyProductSearchOptions) {
     super();
@@ -105,11 +127,24 @@ export class ApiOnlyProductSearch extends ProductSearchPort {
     this.fetchFn = options.fetchFn ?? fetch;
     this.now = options.now ?? Date.now;
     this.warn = options.onWarn ?? (() => undefined);
+    const { cacheTtlMs, cacheMaxEntries } = this.limits;
+    this.pages = new TtlCache(cacheTtlMs, cacheMaxEntries, this.now);
+    this.searches = new TtlCache(cacheTtlMs, cacheMaxEntries, this.now);
   }
 
   /** `similarityOrder` is ignored: API mode has no embeddings (ADR 0005). */
   async search(query: CatalogQuery): Promise<ProductSearchResult> {
+    const { products, coverage } = await this.fetchFor(query);
+    return { ...filterProducts(products, query, null), coverage };
+  }
+
+  /** The plan (lists to read) is the key: price limits, sort and offset don't change what is fetched. */
+  private async fetchFor(query: CatalogQuery): Promise<Fetched> {
     const plan = planApiSearch(query, this.limits.maxKeywords);
+    const key = JSON.stringify([plan.sources, plan.droppedKeywords]);
+    const cached = this.searches.get(key);
+    if (cached) return cached;
+
     const outcomes = await this.withRun((run) =>
       Promise.all(
         plan.sources.map(async (source) => ({ source, outcome: await this.readSource(source, run) })),
@@ -122,7 +157,10 @@ export class ApiOnlyProductSearch extends ProductSearchPort {
     const complete =
       plan.droppedKeywords.length === 0 &&
       outcomes.every(({ source, outcome }) => !plan.decisive.includes(source) || outcome.complete);
-    return { ...filterProducts([...seen.values()], query, null), coverage: { checked: seen.size, complete } };
+    const fetched = { products: [...seen.values()], coverage: { checked: seen.size, complete } };
+    // A failed page isn't remembered: the next search gets a chance to read it.
+    if (!outcomes.some(({ outcome }) => outcome.failed)) this.searches.set(key, fetched);
+    return fetched;
   }
 
   async topRated(limit: number): Promise<Product[]> {
@@ -161,7 +199,7 @@ export class ApiOnlyProductSearch extends ProductSearchPort {
   /** Page 1 tells how many Products the list holds; the remaining pages (up to the cap) are read in parallel. */
   private async readSource(source: ApiSource, run: Run): Promise<SourceOutcome> {
     const first = await this.readPage(source, 0, run);
-    if (!first) return { products: [], reached: false, complete: false };
+    if (!first) return { products: [], reached: false, complete: false, failed: true };
     const { pageSize } = this.limits;
     const cap = source.kind === 'search' ? this.limits.maxSearchPages : this.limits.maxPages;
     const pages = Math.min(cap, Math.ceil(first.total / pageSize));
@@ -171,15 +209,19 @@ export class ApiOnlyProductSearch extends ProductSearchPort {
       ),
     );
     const products = [first, ...rest].flatMap((p) => p?.products ?? []);
-    return { products, reached: true, complete: rest.every(Boolean) && pages * pageSize >= first.total };
+    const failed = !rest.every(Boolean);
+    return { products, reached: true, complete: !failed && pages * pageSize >= first.total, failed };
   }
 
   /** One page, or null when it failed — a failed page is dropped, never fatal on its own. */
   private async readPage(source: ApiSource, skip: number, run: Run): Promise<Page | null> {
     const path = this.pathFor(source, skip);
+    const cached = this.pages.get(path);
+    if (cached) return cached;
     try {
       const { products, skipped, total } = parseCatalogPage(await run.slot(() => this.call(path, run)));
       if (skipped > 0) this.warn(`Skipped ${skipped} invalid products from ${path}`);
+      this.pages.set(path, { products, total });
       return { products, total };
     } catch (e) {
       this.warn(`Dropped ${path}: ${(e as Error).message}`);

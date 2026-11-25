@@ -14,12 +14,13 @@ const q = (over: Partial<CatalogQuery> = {}): CatalogQuery => ({
   ...over,
 });
 const BIG = generateCatalog(10_000); // ~3,333 per category
-const setup = (fetchFn: typeof fetch, limits: Partial<ApiSearchLimits> = {}) => {
+const setup = (fetchFn: typeof fetch, limits: Partial<ApiSearchLimits> = {}, now = () => 0) => {
   const warnings: string[] = [];
   const search = new ApiOnlyProductSearch({
     baseUrl: 'https://dj.test',
     fetchFn,
     limits,
+    now,
     onWarn: (m) => warnings.push(m),
   });
   return { search, warnings };
@@ -164,5 +165,59 @@ describe('ApiOnlyProductSearch', () => {
     const { search } = setup(fakeDummyJson(generateCatalog(10)).fetchFn);
     expect((await search.getById(7)).id).toBe(7);
     await expect(search.getById(99)).rejects.toBeInstanceOf(ProductNotFoundError);
+  });
+
+  describe('caching (30 s)', () => {
+    const cachingSetup = (catalog = generateCatalog(1000)) => {
+      let now = 0;
+      const api = fakeDummyJson(catalog);
+      const { search } = setup(api.fetchFn, {}, () => now);
+      return { search, api, advance: (ms: number) => (now += ms) };
+    };
+
+    it('a repeat, a "Show more" page and a price Follow-up reuse what was fetched', async () => {
+      const { search, api } = cachingSetup();
+      const first = await search.search(q({ category: 'laptops' }));
+      const calls = api.requests.length;
+      await search.search(q({ category: 'laptops' }));
+      const more = await search.search(q({ category: 'laptops', offset: 4 }));
+      const cheaper = await search.search(q({ category: 'laptops', maxPrice: 100, sortBy: 'price-asc' }));
+      expect(api.requests).toHaveLength(calls);
+      expect(more.matchIds).toEqual(first.matchIds); // same set, so page 2 never repeats page 1
+      expect(cheaper.products.every((p) => p.price <= 100)).toBe(true);
+    });
+
+    it('a new search shares pages already fetched by another', async () => {
+      const { search, api } = cachingSetup();
+      await search.search(q({ category: 'laptops' }));
+      const calls = api.requests.length;
+      await search.search(q({ category: 'laptops', keywords: ['waterproof'] }));
+      expect(api.requests.slice(calls)).toEqual(['/products/search?q=waterproof&limit=100&skip=0']);
+    });
+
+    it('fetches again after 30 s', async () => {
+      const { search, api, advance } = cachingSetup();
+      await search.search(q({ category: 'tops' }));
+      const calls = api.requests.length;
+      advance(30_000);
+      await search.search(q({ category: 'tops' }));
+      expect(api.requests.length).toBe(calls * 2);
+    });
+
+    it('does not remember a search that lost a page, so the next one reads it again', async () => {
+      const api = fakeDummyJson(generateCatalog(1000));
+      let broken = true;
+      const fetchFn: typeof fetch = async (input, init) =>
+        broken && String(input).includes('skip=200')
+          ? new Response('', { status: 500 })
+          : api.fetchFn(input, init);
+      const { search } = setup(fetchFn);
+      expect((await search.search(q({ category: 'laptops' }))).coverage.complete).toBe(false);
+      broken = false;
+      expect((await search.search(q({ category: 'laptops' }))).coverage).toEqual({
+        checked: 333,
+        complete: true,
+      });
+    });
   });
 });
