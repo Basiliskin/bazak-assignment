@@ -14,7 +14,10 @@ import type { AppConfig } from '../../src/shared/config/app-config.js';
 import { configureApp } from '../../src/shared/configure-app.js';
 
 export const testConfig: AppConfig = {
+  llmProvider: 'openai',
   openAiKey: 'test',
+  openAiBaseUrl: null,
+  anthropicBaseUrl: null,
   model: 'gpt-6-luna',
   port: 0,
   databasePath: ':memory:',

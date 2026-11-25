@@ -11,25 +11,22 @@ import {
 } from 'ai';
 import { LlmPort, type ChatStream, type LlmTurnRequest } from '../application/llm.port.js';
 import type { HistoryMessage } from '../domain/history-message.js';
+import {
+  joinStepText,
+  LLM_FAILED,
+  MAX_STEPS,
+  REPLY_NOT_SAVED,
+  REPORT_OFF_CATALOG_DESCRIPTION,
+  SEARCH_PRODUCTS_DESCRIPTION,
+} from './llm-turn.js';
 
-/** Tool-call rounds per turn (search → maybe a second search → reply). */
-export const MAX_STEPS = 3;
-
-export const LLM_FAILED = 'The assistant could not finish this reply. Please try again.';
-export const REPLY_NOT_SAVED =
-  'Your reply was shown but could not be saved. It may be missing after a refresh.';
+export { LLM_FAILED, MAX_STEPS, REPLY_NOT_SAVED } from './llm-turn.js';
 
 const toModelMessage = (h: HistoryMessage): ModelMessage =>
   h.role === 'note' ? { role: 'system', content: h.text } : { role: h.role, content: h.text };
 
-const joinStepText = (steps: readonly { text: string }[]): string =>
-  steps
-    .map((s) => s.text.trim())
-    .filter(Boolean)
-    .join('\n\n');
-
 /**
- * LlmPort on the Vercel AI SDK (ADR 0001, D24). The only file in the API that imports `ai`.
+ * LlmPort on the Vercel AI SDK (ADR 0001, D24) — the default, OpenAI provider.
  * Streams the UI message protocol (SSE) that `useChat` reads; errors become `error` parts, never a dropped connection.
  */
 export class AiSdkLlm extends LlmPort {
@@ -50,14 +47,12 @@ export class AiSdkLlm extends LlmPort {
           allowSystemInMessages: true, // history notes (D25) are system messages between turns
           tools: {
             [TOOL_NAMES.searchProducts]: tool({
-              description:
-                'Search the shop Catalog. One call per Search Intent. Returns `match` (up to 4 matching Products + total) ' +
-                'and `recommended` (up to 4 similar Products the system adds as "You might also like", or null).',
+              description: SEARCH_PRODUCTS_DESCRIPTION,
               inputSchema: SearchProductsInputSchema,
               execute: (query) => request.tools.searchProducts(query),
             }),
             [TOOL_NAMES.reportOffCatalog]: tool({
-              description: 'Mark that the Shopper asked for something this shop does not sell.',
+              description: REPORT_OFF_CATALOG_DESCRIPTION,
               inputSchema: ReportOffCatalogInputSchema,
               execute: (input) => request.tools.reportOffCatalog(input),
             }),

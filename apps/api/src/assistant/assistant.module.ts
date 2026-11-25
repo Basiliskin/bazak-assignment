@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createOpenAI } from '@ai-sdk/openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { Logger, Module } from '@nestjs/common';
 import type { LanguageModel } from 'ai';
 import { CatalogService } from '../catalog/application/catalog.service.js';
@@ -11,9 +12,10 @@ import type { AppConfig } from '../shared/config/app-config.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { LlmPort } from './application/llm.port.js';
 import { AiSdkLlm } from './infrastructure/ai-sdk.llm.js';
+import { AnthropicLlm } from './infrastructure/anthropic.llm.js';
 import { ChatController } from './presentation/chat.controller.js';
 
-/** DI token for the language model, so tests can swap in MockLanguageModelV4. */
+/** DI token for the AI SDK language model, so tests can swap in MockLanguageModelV4. Null with the anthropic provider. */
 export const LANGUAGE_MODEL = Symbol('LANGUAGE_MODEL');
 
 @Module({
@@ -23,17 +25,30 @@ export const LANGUAGE_MODEL = Symbol('LANGUAGE_MODEL');
     {
       provide: LANGUAGE_MODEL,
       inject: [APP_CONFIG],
-      useFactory: (config: AppConfig): LanguageModel =>
-        createOpenAI({ apiKey: config.openAiKey })(config.model),
+      useFactory: (config: AppConfig): LanguageModel | null =>
+        config.llmProvider === 'openai'
+          ? createOpenAI({ apiKey: config.openAiKey ?? '', baseURL: config.openAiBaseUrl ?? undefined })(
+              config.model,
+            )
+          : null,
     },
     {
       provide: LlmPort,
-      inject: [LANGUAGE_MODEL],
-      useFactory: (model: LanguageModel) => {
+      inject: [APP_CONFIG, LANGUAGE_MODEL],
+      useFactory: (config: AppConfig, model: LanguageModel | null) => {
         const logger = new Logger('Assistant');
-        return new AiSdkLlm(model, (message, error) =>
-          logger.error(`${message}: ${error instanceof Error ? error.message : String(error)}`),
-        );
+        const logError = (message: string, error: unknown) =>
+          logger.error(`${message}: ${error instanceof Error ? error.message : String(error)}`);
+        if (config.llmProvider === 'anthropic') {
+          // Credentials come from the environment: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant auth login` profile.
+          const client = new Anthropic({ baseURL: config.anthropicBaseUrl ?? undefined });
+          logger.warn(
+            `LLM_PROVIDER=anthropic (${config.model}) — local development only; the assignment allows gpt-6-luna`,
+          );
+          return new AnthropicLlm((params) => client.messages.stream(params), config.model, logError);
+        }
+        if (!model) throw new Error('LANGUAGE_MODEL is missing for the openai provider');
+        return new AiSdkLlm(model, logError);
       },
     },
     {
