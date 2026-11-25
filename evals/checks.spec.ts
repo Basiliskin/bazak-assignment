@@ -202,6 +202,31 @@ describe('checkReply — expectations per case', () => {
     });
   });
 
+  it('R2 passes when one of several guessed searches shows cards; fails when none does', () => {
+    const empty = group([], { label: 'Cool gadgets', confidence: 'guessed', assumption: 'cheap gadgets' });
+    const shown = group([3], {
+      label: 'Cool sunglasses',
+      confidence: 'guessed',
+      assumption: 'cheap sunglasses',
+    });
+    const check = (productGroups: ProductGroup[]) =>
+      byRule(
+        checkReply({
+          expect: { assumption: true },
+          reply: reply({ text: 'Which?', productGroups }),
+          catalog,
+        }),
+        'R2',
+      );
+
+    expect(check([empty, shown])).toEqual({
+      rule: 'R2',
+      pass: true,
+      detail: 'assumption: "cheap sunglasses"',
+    });
+    expect(check([empty])).toEqual({ rule: 'R2', pass: false, detail: 'guessed search showed no cards' });
+  });
+
   it('R5 passes when every new card is cheaper than the cheapest shown before', () => {
     const previous = reply({ productGroups: [group([1, 2])] });
     const results = checkReply({

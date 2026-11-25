@@ -128,3 +128,23 @@ Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported �
 
 No failures.
 <!-- eval:end -->
+
+<!-- eval:api:start -->
+## Live eval — API-only Catalog (ADR 0005)
+
+`CATALOG_MODE=api npm run eval` · model `deepseek-flash` · real DummyJSON Catalog · 2026-11-25 12:25 · **7/7 cases passed**
+
+Rules: R1 real Products · R2 Assumption + question · R3 off-catalog reported · R4 one group per intent · R5 follow-up cheaper · R6 price limit · R7 ≤ 4 cards · R9 in stock · R10 Recommended Group repeats no match, keeps price + stock · similar = "You might also like" shown · relevant = match cards on topic (beach) · reply has text.
+
+| Case | Request | Groups | Checks | Time |
+|---|---|---|---|---|
+| plain | show me smartphones | Smartphones (4 of 15) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 | 3.5 s |
+| price | a phone under $500 | Phones under $500 (4 of 12) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 2.1 s |
+| ambiguous | something cheap and cool | Cheap, cool sunglasses (3 of 3); Cheap cool mobile accessories (0 of 0); Budget tech accessories (4 of 5) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R2 | 7.3 s |
+| off-catalog | a flight to Tokyo | Instead: travel gear for a Tokyo trip (0 of 0) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R3 | 3.9 s |
+| multi-intent | a phone under $500 and a lipstick | Phones under $500 (4 of 12); Lipsticks (1 of 1) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R6 | 3.3 s |
+| follow-up | show me men's watches, most expensive first → show me cheaper ones | Men's watches under $8,999.99 (2 of 2) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ R4 · ✅ R5 | 6.2 s |
+| beach | something for the beach | Beach sunglasses (4 of 5); Beach bags (4 of 5); Beach sandals (0 of 0) | ✅ R1 · ✅ R7 · ✅ R9 · ✅ reply · ✅ R10 · ✅ relevant | 5.8 s |
+
+No failures.
+<!-- eval:api:end -->

@@ -98,12 +98,14 @@ function checkOffCatalog(reply: Message): CheckResult {
     : result('R3', false, 'report_off_catalog not called');
 }
 
+/** A reply may guess in several directions ("cool gadgets" + "cool sunglasses"); one with cards is enough. */
 function checkAssumption(reply: Message): CheckResult {
-  const guessed = reply.productGroups.find(
+  const guesses = reply.productGroups.filter(
     (g) => g.query.confidence === 'guessed' && g.query.assumption?.trim(),
   );
-  if (!guessed) return result('R2', false, 'no guessed search with an assumption');
-  if (!guessed.products.length) return result('R2', false, 'guessed search showed no cards');
+  if (!guesses.length) return result('R2', false, 'no guessed search with an assumption');
+  const guessed = guesses.find((g) => g.products.length);
+  if (!guessed) return result('R2', false, 'guessed search showed no cards');
   if (!reply.text.includes('?')) return result('R2', false, 'no follow-up question');
   return result('R2', true, `assumption: "${guessed.query.assumption}"`);
 }
