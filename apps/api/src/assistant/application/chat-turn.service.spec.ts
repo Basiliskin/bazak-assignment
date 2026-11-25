@@ -5,6 +5,7 @@ import { group, message } from '../../../test/support/message.fixture.js';
 import { CatalogService } from '../../catalog/application/catalog.service.js';
 import type { RecommendationService } from '../../catalog/application/recommendation.service.js';
 import { toProductCard } from '../../catalog/domain/to-product-card.js';
+import { InMemoryProductSearch } from '../../catalog/infrastructure/in-memory.product-search.js';
 import type { ConversationRepository } from '../../conversations/application/conversation.repository.js';
 import { appendMessage, createConversation } from '../../conversations/domain/conversation.js';
 import { ChatTurnService } from './chat-turn.service.js';
@@ -61,7 +62,10 @@ const setup = (
   repo = new MemoryRepo(),
   recommendations: RecommendationService | null = null,
 ) => {
-  const catalog = new CatalogService({ getAll: async () => CATALOG }, recommendations);
+  const catalog = new CatalogService(
+    new InMemoryProductSearch({ getAll: async () => CATALOG }),
+    recommendations,
+  );
   const { llm, requests } = fakeLlm(script);
   let tick = 0;
   const service = new ChatTurnService(repo, catalog, llm, {

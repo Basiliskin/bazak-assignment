@@ -3,13 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { CatalogUnavailableError, ProductNotFoundError } from '../domain/catalog.errors.js';
 import { product } from '../../../test/support/product.fixture.js';
 import { CatalogService } from './catalog.service.js';
-import type { CatalogPort } from './catalog.port.js';
+import { InMemoryProductSearch } from '../infrastructure/in-memory.product-search.js';
 import type { RecommendationService } from './recommendation.service.js';
 import type { CatalogQuery } from '../domain/filter-products.js';
 
-const port = (products = [product({ id: 1, price: 100 }), product({ id: 2, price: 900 })]): CatalogPort => ({
-  getAll: async () => products,
-});
+const port = (products = [product({ id: 1, price: 100 }), product({ id: 2, price: 900 })]) =>
+  new InMemoryProductSearch({ getAll: async () => products });
 const query: CatalogQuery = {
   category: null,
   keywords: [],
@@ -20,9 +19,10 @@ const query: CatalogQuery = {
 };
 
 describe('CatalogService', () => {
-  it('search returns Product Cards and the total', async () => {
+  it('search returns Product Cards, the total and the coverage', async () => {
     const r = await new CatalogService(port()).search(query);
     expect(r.total).toBe(1);
+    expect(r.coverage).toEqual({ checked: 2, complete: true });
     expect(r.products[0]).not.toHaveProperty('stock');
     expect(r.products[0]?.id).toBe(1);
   });
@@ -36,7 +36,7 @@ describe('CatalogService', () => {
   });
 
   it('lets CatalogUnavailable through for callers to handle', async () => {
-    const down: CatalogPort = { getAll: () => Promise.reject(new CatalogUnavailableError()) };
+    const down = new InMemoryProductSearch({ getAll: () => Promise.reject(new CatalogUnavailableError()) });
     await expect(new CatalogService(down).search(query)).rejects.toBeInstanceOf(CatalogUnavailableError);
   });
 

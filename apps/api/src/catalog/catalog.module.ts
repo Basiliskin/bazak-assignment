@@ -4,9 +4,11 @@ import type { AppConfig } from '../shared/config/app-config.js';
 import { CatalogPort } from './application/catalog.port.js';
 import { CatalogService } from './application/catalog.service.js';
 import { EmbeddingPort } from './application/embedding.port.js';
+import { ProductSearchPort } from './application/product-search.port.js';
 import { RecommendationService } from './application/recommendation.service.js';
 import { VectorIndexPort } from './application/vector-index.port.js';
 import { DummyJsonCatalog } from './infrastructure/dummyjson.catalog.js';
+import { InMemoryProductSearch } from './infrastructure/in-memory.product-search.js';
 import { InMemoryVectorIndex } from './infrastructure/in-memory.vector-index.js';
 import { LocalEmbedding } from './infrastructure/local-embedding.js';
 import { ProductsController } from './presentation/products.controller.js';
@@ -43,10 +45,15 @@ const CATALOG_TTL_MS = 10 * 60 * 1000;
       },
     },
     {
+      provide: ProductSearchPort,
+      inject: [CatalogPort],
+      useFactory: (catalog: CatalogPort) => new InMemoryProductSearch(catalog),
+    },
+    {
       provide: CatalogService,
-      inject: [CatalogPort, RecommendationService],
-      useFactory: (port: CatalogPort, recommendations: RecommendationService) =>
-        new CatalogService(port, recommendations),
+      inject: [ProductSearchPort, RecommendationService],
+      useFactory: (search: ProductSearchPort, recommendations: RecommendationService) =>
+        new CatalogService(search, recommendations),
     },
   ],
   exports: [CatalogService, RecommendationService],
