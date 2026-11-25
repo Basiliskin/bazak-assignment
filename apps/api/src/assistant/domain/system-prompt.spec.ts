@@ -20,4 +20,19 @@ describe('buildSystemPrompt', () => {
   });
 
   it('is deterministic', () => expect(buildSystemPrompt(CATEGORY_SLUGS)).toBe(prompt));
+
+  it('memory mode says nothing about Partial Results', () => expect(prompt).not.toMatch(/coverage/));
+
+  describe('API mode (ADR 0005)', () => {
+    const api = buildSystemPrompt(CATEGORY_SLUGS, 'api');
+
+    it('explains Partial Results and asks for concrete keywords', () => {
+      expect(api).toMatch(/coverage/);
+      expect(api).toMatch(/I checked 500 laptops/);
+      expect(api).toMatch(/of those I checked/);
+      expect(api).toMatch(/1–3 concrete keywords/);
+    });
+
+    it('does not promise a Recommended Group', () => expect(api).not.toMatch(/You might also like/));
+  });
 });

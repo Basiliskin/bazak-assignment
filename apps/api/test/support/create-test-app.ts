@@ -20,11 +20,17 @@ export const testConfig: AppConfig = {
   databasePath: ':memory:',
   dummyJsonUrl: 'http://catalog.invalid',
   modelCacheDir: '/nonexistent/models',
+  catalogMode: 'memory',
 };
 
 /** The real app with fakes at the ports — no network, no files. */
 export async function createTestApp(
-  fakes: { catalog?: CatalogPort; model?: LanguageModel; embedding?: EmbeddingPort } = {},
+  fakes: {
+    catalog?: CatalogPort;
+    model?: LanguageModel;
+    embedding?: EmbeddingPort;
+    config?: Partial<AppConfig>;
+  } = {},
 ): Promise<INestApplication> {
   const catalog: CatalogPort = fakes.catalog ?? { getAll: async (): Promise<Product[]> => [] };
   const model =
@@ -32,7 +38,7 @@ export async function createTestApp(
     new MockLanguageModelV4({ doStream: () => Promise.reject(new Error('no LLM in this test')) });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(APP_CONFIG)
-    .useValue(testConfig)
+    .useValue({ ...testConfig, ...fakes.config })
     .overrideProvider(CatalogPort)
     .useValue(catalog)
     .overrideProvider(LANGUAGE_MODEL)

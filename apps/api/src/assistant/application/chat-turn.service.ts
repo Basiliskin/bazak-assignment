@@ -10,7 +10,7 @@ import type { ConversationRepository } from '../../conversations/application/con
 import { appendMessage, createConversation } from '../../conversations/domain/conversation.js';
 import { compactHistory } from '../domain/compact-history.js';
 import { resolvePagedQuery } from '../domain/resolve-paged-query.js';
-import { buildSystemPrompt } from '../domain/system-prompt.js';
+import { buildSystemPrompt, type SearchScope } from '../domain/system-prompt.js';
 import { toAssistantMessage } from '../domain/to-assistant-message.js';
 import { shouldRecommend, toProductGroup, toRecommendedGroup } from '../domain/to-product-group.js';
 import type { ChatStream, LlmPort, TurnTools } from './llm.port.js';
@@ -20,8 +20,6 @@ export interface TurnEnvironment {
   now(): string;
   newId(): string;
 }
-
-const SYSTEM_PROMPT = buildSystemPrompt(CATEGORY_SLUGS);
 
 /**
  * Collects tool results of one turn. Groups keep tool-call order even when parallel calls finish out of order;
@@ -42,6 +40,7 @@ function createTurnTools(catalog: CatalogService, earlier: readonly Message[]) {
       const output = {
         match: toProductGroup(resolved, result),
         recommended: toRecommendedGroup(resolved, result.recommended),
+        coverage: result.coverage, // how much was checked: the model words a Partial Result from it (ADR 0005)
       };
       slots[slot] = output.recommended ? [output.match, output.recommended] : [output.match];
       return output;
@@ -62,7 +61,12 @@ export class ChatTurnService {
     private readonly catalog: CatalogService,
     private readonly llm: LlmPort,
     private readonly env: TurnEnvironment,
-  ) {}
+    scope: SearchScope = 'memory',
+  ) {
+    this.system = buildSystemPrompt(CATEGORY_SLUGS, scope);
+  }
+
+  private readonly system: string;
 
   async run({ conversationId, message }: ChatRequest): Promise<ChatStream> {
     const now = this.env.now();
@@ -83,7 +87,7 @@ export class ChatTurnService {
 
     const turn = createTurnTools(this.catalog, conversation.messages);
     return this.llm.streamTurn({
-      system: SYSTEM_PROMPT,
+      system: this.system,
       history: compactHistory(conversation.messages),
       tools: turn.tools,
       onFinish: async ({ text }) => {

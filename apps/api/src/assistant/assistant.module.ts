@@ -38,9 +38,15 @@ export const LANGUAGE_MODEL = Symbol('LANGUAGE_MODEL');
     },
     {
       provide: ChatTurnService,
-      inject: [ConversationRepository, CatalogService, LlmPort],
-      useFactory: (repo: ConversationRepository, catalog: CatalogService, llm: LlmPort) =>
-        new ChatTurnService(repo, catalog, llm, { now: () => new Date().toISOString(), newId: randomUUID }),
+      inject: [APP_CONFIG, ConversationRepository, CatalogService, LlmPort],
+      useFactory: (config: AppConfig, repo: ConversationRepository, catalog: CatalogService, llm: LlmPort) =>
+        new ChatTurnService(
+          repo,
+          catalog,
+          llm,
+          { now: () => new Date().toISOString(), newId: randomUUID },
+          config.catalogMode,
+        ),
     },
   ],
 })

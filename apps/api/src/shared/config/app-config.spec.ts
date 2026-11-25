@@ -15,8 +15,15 @@ describe('parseConfig', () => {
         databasePath: '/repo/data/app.db',
         dummyJsonUrl: 'https://dummyjson.com',
         modelCacheDir: '/repo/data/models',
+        catalogMode: 'memory',
       },
     });
+  });
+
+  it('reads CATALOG_MODE and rejects unknown modes (ADR 0005)', () => {
+    const api = parseConfig({ OPENAI_KEY: 'k', CATALOG_MODE: 'api' }, ROOT);
+    expect(api.ok && api.config.catalogMode).toBe('api');
+    expect(parseConfig({ OPENAI_KEY: 'k', CATALOG_MODE: 'db' }, ROOT).ok).toBe(false);
   });
 
   it('keeps absolute and in-memory database paths as given', () => {

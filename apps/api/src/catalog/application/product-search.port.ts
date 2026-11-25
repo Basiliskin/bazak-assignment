@@ -1,11 +1,8 @@
+import type { Coverage } from '@app/contracts';
 import type { CatalogQuery } from '../domain/filter-products.js';
 import type { Product } from '../domain/product.js';
 
-/** How much of the Catalog a search looked at. `complete: false` = a Partial Result (ADR 0005). */
-export interface Coverage {
-  readonly checked: number;
-  readonly complete: boolean;
-}
+export type { Coverage };
 
 export interface ProductSearchResult {
   /** One page (PAGE_SIZE) of matches, in the query's order. */

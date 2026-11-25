@@ -120,6 +120,7 @@ describe('ChatTurnService', () => {
     expect(result?.match.products.map((p) => p.id)).toEqual([2]);
     expect(result?.match.total).toBe(1);
     expect(result?.recommended).toBeNull();
+    expect(result?.coverage).toEqual({ checked: CATALOG.length, complete: true }); // ADR 0005
   });
 
   it('returns and saves a Recommended Group right after its match group (ADR 0004)', async () => {

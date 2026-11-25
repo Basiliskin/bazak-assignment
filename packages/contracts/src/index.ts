@@ -122,10 +122,18 @@ export const ProductGroupSchema = z.object({
 });
 export type ProductGroup = z.infer<typeof ProductGroupSchema>;
 
+/** How much of the Catalog a search checked. `complete: false` = a Partial Result (ADR 0005). */
+export const CoverageSchema = z.object({
+  checked: z.number().int().nonnegative(),
+  complete: z.boolean(),
+});
+export type Coverage = z.infer<typeof CoverageSchema>;
+
 /** What one search_products call returns: the keyword matches plus, when something is similar enough, a Recommended Group. */
 export const SearchProductsOutputSchema = z.object({
   match: ProductGroupSchema,
   recommended: ProductGroupSchema.nullable(),
+  coverage: CoverageSchema.optional(), // absent from outputs saved before ADR 0005
 });
 export type SearchProductsOutput = z.infer<typeof SearchProductsOutputSchema>;
 
